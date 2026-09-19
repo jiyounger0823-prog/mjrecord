@@ -370,6 +370,33 @@
                 <button onclick="saveSettings()" class="w-full py-2 bg-neon-purple hover:bg-purple-600 font-bold text-xs rounded-xl text-white">
                     設定を保存
                 </button>
+                <div class="border-t border-gray-800 pt-3 mt-2 space-y-2">
+    <p class="text-[10px] text-gray-400">
+        別のiPhoneへデータを引き継ぐ
+    </p>
+
+    <div class="flex gap-2">
+        <button
+            type="button"
+            onclick="exportAppData()"
+            class="flex-1 py-2 bg-neon-cyan/20 border border-neon-cyan/50 text-neon-cyan rounded-xl text-xs font-bold"
+        >
+            データを書き出す
+        </button>
+
+        <label
+            class="flex-1 py-2 bg-neon-purple/20 border border-neon-purple/50 text-neon-purple rounded-xl text-xs font-bold text-center cursor-pointer"
+        >
+            データを読み込む
+            <input
+                type="file"
+                accept=".json,application/json"
+                onchange="importAppData(event)"
+                class="hidden"
+            >
+        </label>
+    </div>
+</div>
             </div>
         </div>
     </div>
