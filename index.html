@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ネオン麻雀スコアマネージャー (5人対応)</title>
+  <style>
+    :root {
+      --bg-color: #0b0e14;
+      --card-bg: #151d28;
+      --neon-cyan: #00f3ff;
+      --neon-pink: #ff0055;
+      --neon-green: #00ff66;
+      --neon-yellow: #ffe600;
+      --text-color: #ffffff;
+      --text-sub: #7e8b9b;
+      --border-color: #223043;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 850px;
+    }
+
+    header h1 {
+      text-align: center;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+    }
+
+    /* ネオン調 タブメニュー */
+    .tab-menu {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-sub);
+      padding: 12px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: #1c2738;
+      color: var(--neon-cyan);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+    }
+
+    /* タブコンテンツ */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* ネオン風カード */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-title {
+      color: var(--neon-pink);
+      text-shadow: 0 0 8px rgba(255, 0, 85, 0.4);
+      font-size: 1.1rem;
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-weight: bold;
+    }
+
+    /* ネオンボタン */
+    .btn-neon {
+      background: transparent;
+      color: var(--neon-green);
+      border: 2px solid var(--neon-green);
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0, 255, 102, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .btn-neon:hover {
+      background: var(--neon-green);
+      color: #000;
+      box-shadow: 0 0 15px rgba(0, 255, 102, 0.6);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-sub);
+      border: 1px solid var(--border-color);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* 入力フォーム */
+    .grid-inputs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (min-width: 600px) {
+      .grid-inputs { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .input-box {
+      background: #0d131a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .input-box label {
+      display: block;
+      color: var(--neon-cyan);
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .input-box input {
+      width: 100%;
+      background: #151d28;
+      border: 1px solid var(--neon-cyan);
+      color: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 1.1rem;
+      box-sizing: border-box;
+      box-shadow: inset 0 0 5px rgba(0, 243, 255, 0.2);
+    }
+
+    /* テーブルデザイン */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: center;
+    }
+
+    th, td {
+      padding: 12px 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: #0d131a;
+      color: var(--neon-cyan);
+    }
+
+    .row-total {
+      background: #1c2838;
+      color: var(--neon-green);
+      font-weight: bold;
+      box-shadow: inset 0 0 10px rgba(0, 255, 102, 0.1);
+    }
+
+    .row-rank {
+      background: #242010;
+      color: var(--neon-yellow);
+      font-weight: bold;
+    }
+
+    /* モーダル（抜け番選択） */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 1000;
+      visibility: hidden; opacity: 0;
+      transition: all 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      visibility: visible; opacity: 1;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--neon-pink);
+      box-shadow: 0 0 20px rgba(255, 0, 85, 0.3);
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%; max-width: 400px;
+    }
+
+    .player-select-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .player-select-label {
+      display: flex;
+      align-items: center;
+      background: #0d131a;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+    }
+
+    .player-select-label input {
+      margin-right: 12px;
+      accent-color: var(--neon-pink);
+      transform: scale(1.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <h1>NEON MAHJONG SCORE</h1>
+    </header>
+
+    <!-- タブ切り替えメニュー -->
+    <div class="tab-menu">
+      <button class="tab-btn active" onclick="switchTab('game')">対局管理</button>
+      <button class="tab-btn" onclick="switchTab('stats')">成績・推移 (5人)</button>
+      <button class="tab-btn" onclick="switchTab('settings')">メンバー設定</button>
+    </div>
+
+    <!-- TAB 1: 対局管理 -->
+    <div id="tab-game" class="tab-content active">
+      <!-- 待機状態（新対局開始ボタン） -->
+      <div id="startSection" class="card" style="text-align: center; padding: 40px 20px;">
+        <button class="btn-neon" style="font-size: 1.1rem;" onclick="openPlayerSelect()">+ 新しい半荘を開始</button>
+      </div>
+
+      <!-- スコア入力状態（対局メンバー決定後） -->
+      <div id="inputSection" class="card" style="display: none;">
+        <div class="card-title" id="roundTitle">第 1 半荘 スコア入力</div>
+        <p style="color: var(--text-sub); font-size: 0.9rem; margin-bottom: 15px;">対局者4人のスコアを入力してください：</p>
+        <div class="grid-inputs" id="scoreInputs"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button class="btn-secondary" onclick="cancelGame()">キャンセル</button>
+          <button class="btn-neon" onclick="submitScore()">スコア確定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: 全体推移＆順位表 -->
+    <div id="tab-stats" class="tab-content">
+      <div class="card">
+        <div class="card-title">総合スコア推移＆順位表（5人全員）</div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr id="tableHeader"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: メンバー設定 -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-title">プレイヤー名編集（5人）</div>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+          <input type="text" id="settingP0" class="input-box" style="text-align:left;" placeholder="プレイヤー1">
+          <input type="text" id="settingP1" class="input-box" style="text-align:left;" placeholder="プレイヤー2">
+          <input type="text" id="settingP2" class="input-box" style="text-align:left;" placeholder="プレイヤー3">
+          <input type="text" id="settingP3" class="input-box" style="text-align:left;" placeholder="プレイヤー4">
+          <input type="text" id="settingP4" class="input-box" style="text-align:left;" placeholder="プレイヤー5">
+        </div>
+        <button class="btn-neon" onclick="saveSettings()">名前を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 抜け番（対局メンバー4人）選択モーダル -->
+  <div class="modal-overlay" id="selectModal">
+    <div class="modal">
+      <div class="card-title" style="color: var(--neon-cyan);">対局メンバー選択</div>
+      <p style="font-size: 0.85rem; color: var(--text-sub);">
+        今回対局する <b>4人</b> を選んでください（チェックがない1人が抜け番となります）：
+      </p>
+      <div class="player-select-group" id="playerSelectList"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+        <button class="btn-secondary" onclick="closeModal()">キャンセル</button>
+        <button class="btn-neon" onclick="confirmActivePlayers()">対局へ進む</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let players = ["プレイヤーA", "プレイヤーB", "プレイヤーC", "プレイヤーD", "プレイヤーE"];
+    let history = []; // 各対局の得点配列 [ [s1, s2, s3, s4, s5], ... ]
+    let currentActiveIndices = []; 
+
+    window.onload = function() {
+      loadSettingsToForm();
+      renderTable();
+    };
+
+    /* タブ切り替え処理 */
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    /* メンバー選択・モーダル処理 */
+    function openPlayerSelect() {
+      const list = document.getElementById("playerSelectList");
+      list.innerHTML = "";
+
+      players.forEach((p, idx) => {
+        list.innerHTML += `
+          <label class="player-select-label">
+            <input type="checkbox" name="selectPlayer" value="${idx}" checked onchange="limit4(this)">
+            <span>${p}</span>
+          </label>
+        `;
+      });
+      document.getElementById("selectModal").classList.add("active");
+    }
+
+    function closeModal() {
+      document.getElementById("selectModal").classList.remove("active");
+    }
+
+    function limit4(el) {
+      const checked = document.querySelectorAll('input[name="selectPlayer"]:checked');
+      if (checked.length > 4) {
+        el.checked = false;
+        alert("選択できるのは4人までです（1人は抜け番になります）。");
+      }
+    }
+
+    function confirmActivePlayers() {
+      const checked = Array.from(document.querySelectorAll('input[name="selectPlayer"]:checked'));
+      if (checked.length !== 4) {
+        alert("対局する4人を選択してください。");
+        return;
+      }
+
+      currentActiveIndices = checked.map(c => parseInt(c.value));
+      closeModal();
+
+      // スコア入力エリアの生成と表示
+      showScoreInputs();
+    }
+
+    /* スコア入力画面制御 */
+    function showScoreInputs() {
+      document.getElementById("startSection").style.display = "none";
+      document.getElementById("inputSection").style.display = "block";
+      document.getElementById("roundTitle").textContent = `第 ${history.length + 1} 半荘 スコア入力`;
+
+      const container = document.getElementById("scoreInputs");
+      container.innerHTML = "";
+
+      currentActiveIndices.forEach(idx => {
+        container.innerHTML += `
+          <div class="input-box">
+            <label>${players[idx]}</label>
+            <input type="number" step="0.1" id="score_${idx}" placeholder="0.0">
+          </div>
+        `;
+      });
+    }
+
+    function cancelGame() {
+      document.getElementById("inputSection").style.display = "none";
+      document.getElementById("startSection").style.display = "block";
+      currentActiveIndices = [];
+    }
+
+    function submitScore() {
+      let gameResult = [0, 0, 0, 0, 0]; // 抜け番は0
+
+      for (let idx of currentActiveIndices) {
+        const val = parseFloat(document.getElementById(`score_${idx}`).value);
+        if (isNaN(val)) {
+          alert("参加者4人全員のスコアを入力してください。");
+          return;
+        }
+        gameResult[idx] = val;
+      }
+
+      history.push(gameResult);
+      cancelGame();
+      renderTable();
+      
+      // 自動で成績タブに切り替えて結果を確認しやすくする
+      document.querySelectorAll('.tab-btn')[1].click();
+    }
+
+    /* 5人全員の成績推移＆順位表の描画 */
+    function renderTable() {
+      const header = document.getElementById("tableHeader");
+      header.innerHTML = "<th>半荘</th>" + players.map(p => `<th>${p}</th>`).join("");
+
+      const body = document.getElementById("tableBody");
+      body.innerHTML = "";
+
+      let totals = [0, 0, 0, 0, 0];
+
+      history.forEach((game, gIdx) => {
+        let row = `<tr><td>第 ${gIdx + 1} 半荘</td>`;
+        for (let i = 0; i < 5; i++) {
+          totals[i] += game[i];
+          if (game[i] === 0 && isRest(gIdx, i)) {
+            row += `<td style="color: var(--text-sub);">休</td>`;
+          } else {
+            const scoreStr = game[i] > 0 ? `+${game[i]}` : game[i];
+            row += `<td>${scoreStr}</td>`;
+          }
+        }
+        row += "</tr>";
+        body.innerHTML += row;
+      });
+
+      // トータル行
+      let totalRow = `<tr class="row-total"><td>トータル</td>`;
+      for (let i = 0; i < 5; i++) {
+        const t = totals[i].toFixed(1);
+        const tStr = parseFloat(t) > 0 ? `+${t}` : t;
+        totalRow += `<td>${tStr}</td>`;
+      }
+      totalRow += "</tr>";
+
+      // 順位行
+      const ranks = getRanks(totals);
+      let rankRow = `<tr class="row-rank"><td>総合順位</td>`;
+      for (let i = 0; i < 5; i++) {
+        rankRow += `<td>${ranks[i]} 位</td>`;
+      }
+      rankRow += "</tr>";
+
+      body.innerHTML += totalRow + rankRow;
+    }
+
+    function isRest(gameIdx, playerIdx) {
+      return history[gameIdx][playerIdx] === 0;
+    }
+
+    function getRanks(totals) {
+      let sorted = [...totals].sort((a, b) => b - a);
+      return totals.map(v => sorted.indexOf(v) + 1);
+    }
+
+    /* 設定画面処理 */
+    function loadSettingsToForm() {
+      for (let i = 0; i < 5; i++) {
+        document.getElementById(`settingP${i}`).value = players[i];
+      }
+    }
+
+    function saveSettings() {
+      for (let i = 0; i < 5; i++) {
+        const val = document.getElementById(`settingP${i}`).value.trim();
+        players[i] = val || `プレイヤー${i+1}`;
+      }
+      renderTable();
+      alert("メンバー名を保存しました。");
+    }
+  </script>
+</body>
+</html>
