@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mahjong Manager & Live Ranking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neon: {
+                            cyan: '#00f3ff',
+                            pink: '#ff007f',
+                            purple: '#b000ff',
+                            yellow: '#ffe600',
+                            green: '#00ff66',
+                            dark: '#0a0a12',
+                            card: '#121225'
+                        }
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        japanese: ['Zen Maru Gothic', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #06060c;
+            color: #ffffff;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.6);
+        }
+        .glow-pink {
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            border: 1px solid rgba(255, 0, 127, 0.6);
+        }
+        .glow-purple {
+            box-shadow: 0 0 15px rgba(176, 0, 255, 0.4);
+            border: 1px solid rgba(176, 0, 255, 0.6);
+        }
+        .text-glow-cyan {
+            text-shadow: 0 0 12px rgba(0, 243, 255, 0.9);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a12;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #252545;
+            border-radius: 3px;
+        }
+
+        .table-view-container {
+            height: calc(100vh - 110px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .diff-fade {
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        @media (orientation: landscape) {
+            .landscape-maximize {
+                position: fixed !important;
+                inset: 0 !important;
+                z-index: 50 !important;
+                background-color: #06060c !important;
+                padding: 0.5rem !important;
+                height: 100vh !important;
+                width: 100vw !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .landscape-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+                flex-grow: 1 !important;
+                height: calc(100vh - 60px) !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col justify-between selection:bg-neon-pink selection:text-white overflow-hidden">
+
+    <!-- 1. タブナビゲーション -->
+    <nav id="topNav" class="bg-neon-dark/95 border-b border-gray-800 px-2 py-1.5 sticky top-0 z-50 shrink-0">
+        <div class="max-w-md mx-auto flex justify-around bg-black/50 p-1 rounded-2xl border border-gray-800">
+            <button onclick="switchTab('table')" id="tabBtn-table" class="tab-btn active flex-1 py-1 text-xs sm:text-sm font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-neon-cyan border border-neon-cyan/50">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                <span>卓上表示</span>
+            </button>
+            <button onclick="switchTab('rank')" id="tabBtn-rank" class="tab-btn flex-1 py-1 text-xs sm:text-sm font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 text-gray-400 hover:text-white">
+                <i data-lucide="line-chart" class="w-4 h-4"></i>
+                <span>推移＆順位</span>
+            </button>
+            <button onclick="switchTab('history')" id="tabBtn-history" class="tab-btn flex-1 py-1 text-xs sm:text-sm font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 text-gray-400 hover:text-white">
+                <i data-lucide="history" class="w-4 h-4"></i>
+                <span>対局履歴</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 2. サブヘッダー -->
+    <header id="mainHeader" class="bg-neon-card/90 backdrop-blur-md border-b border-cyan-500/30 sticky top-[45px] z-40 px-2 py-1.5 shrink-0">
+        <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
+            <div id="gameMetaBadge" class="bg-black/60 border border-purple-500/50 rounded-2xl px-3 py-1 text-sm sm:text-base md:text-lg text-purple-200 flex items-center justify-between gap-2 flex-1">
+                <span id="currentRoundText" class="font-extrabold text-neon-cyan text-base sm:text-xl whitespace-nowrap">東 1 局</span>
+                <span id="honbaText" class="font-bold text-xs sm:text-sm bg-purple-900/80 text-purple-100 px-2 py-0.5 rounded-lg whitespace-nowrap">0本場</span>
+                <span id="riichiStickText" class="font-bold text-xs sm:text-sm bg-yellow-900/80 text-yellow-200 px-2 py-0.5 rounded-lg whitespace-nowrap">立直 0</span>
+            </div>
+
+            <button onclick="openRyuukyouModal()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap shrink-0 shadow">
+                流局
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto w-full p-2 md:p-3 flex-grow overflow-hidden flex flex-col justify-start">
+
+        <!-- TAB 1: TABLE DISPLAY (卓上表示) -->
+        <section id="view-table" class="table-view-container gap-2">
+            <div id="tableHeaderBar" class="flex justify-between items-center bg-neon-card p-2 rounded-2xl border border-purple-900/50 shrink-0 gap-2">
+                <button onclick="openScoringModal()" class="px-3 py-1.5 bg-gradient-to-r from-neon-cyan to-blue-600 text-black font-extrabold rounded-xl text-xs sm:text-sm shadow-lg hover:brightness-110 flex items-center gap-1.5">
+                    <i data-lucide="edit-3" class="w-4 h-4"></i> 点数入力
+                </button>
+
+                <div class="flex gap-2">
+                    <button onclick="openMemberSelectModal()" class="px-3 py-1.5 bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/50 text-purple-200 font-bold rounded-xl text-xs sm:text-sm shadow flex items-center gap-1">
+                        <i data-lucide="users" class="w-4 h-4"></i> 卓替え/抜け番
+                    </button>
+                    <button onclick="confirmEndMatch()" class="px-3 py-1.5 bg-gradient-to-r from-neon-yellow to-orange-500 text-black font-extrabold rounded-xl text-xs sm:text-sm shadow-lg hover:brightness-110">
+                        半荘終了
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player Cards Grid (卓上の4名) -->
+            <div id="playersGrid" class="grid grid-cols-2 gap-2 flex-grow h-full min-h-0">
+            </div>
+        </section>
+
+        <!-- TAB 2: RANKING & GRAPH -->
+        <section id="view-rank" class="hidden space-y-4 overflow-y-auto h-full pr-1">
+            <div class="bg-neon-card p-4 rounded-2xl border border-neon-cyan/30 glow-cyan">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-neon-cyan flex items-center gap-1.5">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i> 本日のスコア推移（ポイント）
+                    </h2>
+                    <span class="text-[10px] text-gray-400">各半荘終了時に更新</span>
+                </div>
+                <div class="relative h-52 md:h-72 w-full">
+                    <canvas id="scoreChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-neon-card p-4 rounded-2xl border border-neon-purple/30 glow-purple">
+                <h2 class="text-sm font-bold text-neon-pink mb-3 flex items-center gap-1.5">
+                    <i data-lucide="trophy" class="w-4 h-4"></i> 本日の総合ランキング
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-800 text-[10px] text-gray-400 uppercase font-orbitron">
+                                <th class="p-2">順位</th>
+                                <th class="p-2">プレイヤー</th>
+                                <th class="p-2 text-right">トータルP</th>
+                                <th class="p-2 text-center">対局数</th>
+                                <th class="p-2 text-center">トップ率</th>
+                                <th class="p-2 text-center">平均順位</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingTableBody" class="divide-y divide-gray-800/60 text-xs font-bold">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: GAME HISTORY -->
+        <section id="view-history" class="hidden space-y-3 overflow-y-auto h-full pr-1">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-neon-yellow flex items-center gap-1.5">
+                        <i data-lucide="history" class="w-4 h-4"></i> 本日の対局ログ
+                    </h2>
+                    <button onclick="openSettingsModal()" class="p-1 bg-neon-dark border border-gray-700 hover:border-neon-cyan rounded-xl text-gray-300 hover:text-neon-cyan shrink-0 transition" title="ルール・対局設定">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <button onclick="resetAllData()" class="px-2.5 py-1 bg-red-900/30 hover:bg-red-800/50 text-red-400 border border-red-700/50 rounded-xl text-[10px]">
+                    全データリセット
+                </button>
+            </div>
+            <div id="historyList" class="space-y-2">
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SCORING MODAL -->
+    <div id="scoringModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-cyan/50 rounded-3xl w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                <h3 class="text-base font-bold text-neon-cyan">和了（アガリ）点数入力</h3>
+                <button onclick="closeModal('scoringModal')" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="scoringForm" onsubmit="handleScoreSubmit(event)" class="space-y-3">
+                <div>
+                    <label class="block text-[10px] text-gray-400 mb-1">和了方式</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="winTypeRon" onclick="setWinType('ron')" class="py-2 rounded-xl border text-xs font-bold transition bg-neon-pink/30 border-neon-pink text-neon-pink">
+                            ⚡ ロン (放銃)
+                        </button>
+                        <button type="button" id="winTypeTsumo" onclick="setWinType('tsumo')" class="py-2 rounded-xl border text-xs font-bold transition bg-black/40 border-gray-800 text-gray-400">
+                            🌊 ツモ (自ツモ)
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] text-gray-400 mb-1">和了者 (アガリ)</label>
+                    <div id="winnerSelectGrid" class="grid grid-cols-2 gap-1.5"></div>
+                </div>
+
+                <div id="loserSelectContainer">
+                    <label class="block text-[10px] text-gray-400 mb-1">放銃者 (ロンされた人)</label>
+                    <div id="loserSelectGrid" class="grid grid-cols-2 gap-1.5"></div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">翻数</label>
+                        <select id="scoreHan" onchange="autoCalculateScore()" class="w-full bg-black/60 border border-gray-700 rounded-xl p-2 text-xs text-white focus:border-neon-cyan outline-none">
+                            <option value="">選択</option>
+                            <option value="1">1 翻</option>
+                            <option value="2">2 翻</option>
+                            <option value="3">3 翻</option>
+                            <option value="4">4 翻</option>
+                            <option value="5">満貫 (5翻)</option>
+                            <option value="6">跳満 (6-7翻)</option>
+                            <option value="8">倍満 (8-10翻)</option>
+                            <option value="11">三倍満 (11-12翻)</option>
+                            <option value="13">役満 (13翻〜)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">符数</label>
+                        <select id="scoreFu" onchange="autoCalculateScore()" class="w-full bg-black/60 border border-gray-700 rounded-xl p-2 text-xs text-white focus:border-neon-cyan outline-none">
+                            <option value="30" selected>30 符</option>
+                            <option value="20">20 符 (ピンフツモ)</option>
+                            <option value="25">25 符 (七対子)</option>
+                            <option value="40">40 符</option>
+                            <option value="50">50 符</option>
+                            <option value="60">60 符</option>
+                            <option value="70">70 符</option>
+                            <option value="80">80 符</option>
+                            <option value="90">90 符</option>
+                            <option value="100">100 符</option>
+                            <option value="110">110 符</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">移動点数 (直入力可)</label>
+                        <input type="number" id="customMoveScore" step="100" placeholder="0" class="w-full bg-black/60 border border-gray-700 rounded-xl p-2 text-xs font-bold text-neon-yellow focus:border-neon-cyan outline-none">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-neon-cyan to-neon-purple font-extrabold text-black text-xs rounded-xl hover:brightness-110 shadow-lg">
+                    計算・スコア適用
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- RYUUKYOU MODAL -->
+    <div id="ryuukyouModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-gray-600 rounded-3xl w-full max-w-sm p-4 space-y-3">
+            <h3 class="text-base font-bold text-gray-200">流局 - 聴牌（テンパイ）確認</h3>
+            <p class="text-xs text-gray-400">テンパイしているプレイヤーを選択してください。</p>
+            <div id="tenpaiCheckGrid" class="grid grid-cols-2 gap-2"></div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeModal('ryuukyouModal')" class="flex-1 py-2 bg-gray-800 text-gray-300 rounded-xl text-xs font-bold">キャンセル</button>
+                <button onclick="applyRyuukyou()" class="flex-1 py-2 bg-neon-cyan text-black rounded-xl text-xs font-bold">確定・流局処理</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MEMBER SELECT MODAL (対局参加者/抜け番選択) -->
+    <div id="memberSelectModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-cyan/50 rounded-3xl w-full max-w-md p-4 space-y-3">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                <h3 class="text-base font-bold text-neon-cyan">対局メンバー選択 (4名)</h3>
+                <button onclick="closeModal('memberSelectModal')" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-gray-400">次（または現在）の半荘に参加する4名を選択し、風（席順）を指定してください。</p>
+            <div id="seatAssignmentContainer" class="space-y-2"></div>
+            <button onclick="saveActiveMembers()" class="w-full py-2.5 bg-gradient-to-r from-neon-cyan to-neon-purple font-extrabold text-black text-xs rounded-xl hover:brightness-110 shadow-lg">
+                この4名で対局開始 / 変更
+            </button>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-purple/50 rounded-3xl w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                <h3 class="text-base font-bold text-neon-purple">対局・ルール設定</h3>
+                <button onclick="closeModal('settingsModal')" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-[10px] text-gray-400">全参加プレイヤー登録（抜け番含む）</label>
+                        <button onclick="addNewPlayerInput()" class="text-[10px] text-neon-cyan hover:underline font-bold">+ プレイヤー追加</button>
+                    </div>
+                    <div id="playerInputs" class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">配給原点 (配点)</label>
+                        <input type="number" id="startPoints" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="25000">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">返し点 (オカ基準)</label>
+                        <input type="number" id="returnPoints" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="30000">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] text-gray-400 mb-1">ウマ (1位-2位-3位-4位)</label>
+                    <select id="umaSetting" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs">
+                        <option value="10-30">ゴッツー / ワンツー (+30, +10, -10, -30)</option>
+                        <option value="10-20">+20, +10, -10, -20</option>
+                        <option value="5-10">+10, +5, -5, -10</option>
+                        <option value="0-0">ウマなし (0, 0, 0, 0)</option>
+                    </select>
+                </div>
+
+                <button onclick="saveSettings()" class="w-full py-2 bg-neon-purple hover:bg-purple-600 font-bold text-xs rounded-xl text-white">
+                    設定を保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADJUST SCORE MODAL -->
+    <div id="adjustModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-yellow/50 rounded-3xl w-full max-w-sm p-4 space-y-3">
+            <h3 class="text-base font-bold text-neon-yellow">点数直接手入力調整</h3>
+            <p id="adjustPlayerName" class="text-xs font-bold text-gray-300"></p>
+            <div>
+                <label class="block text-[10px] text-gray-400 mb-1">調整後の点数</label>
+                <input type="number" id="adjustScoreInput" step="100" class="w-full bg-black/60 border border-gray-700 p-2.5 rounded-xl text-base font-bold font-orbitron text-neon-yellow">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeModal('adjustModal')" class="flex-1 py-2 bg-gray-800 text-gray-300 rounded-xl text-xs font-bold">キャンセル</button>
+                <button onclick="applyScoreAdjustment()" class="flex-1 py-2 bg-neon-yellow text-black rounded-xl text-xs font-bold">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const Winds = ['東', '南', '西', '北'];
+        const Palette = ['#00f3ff', '#ff007f', '#ffe600', '#b000ff', '#00ff66', '#ff9900', '#0099ff', '#ff00cc'];
+
+        let appState = {
+            allPlayers: [
+                { id: 0, name: 'プレイヤー1' },
+                { id: 1, name: 'プレイヤー2' },
+                { id: 2, name: 'プレイヤー3' },
+                { id: 3, name: 'プレイヤー4' },
+                { id: 4, name: 'プレイヤー5' }
+            ],
+            // 卓上にいる4名のプレイヤーID（席順：東, 南, 西, 北）
+            activePlayerIds: [0, 1, 2, 3],
+            // 現在の対局における各席の点数と立直状態
+            tableSeats: [
+                { score: 25000, riichi: false },
+                { score: 25000, riichi: false },
+                { score: 25000, riichi: false },
+                { score: 25000, riichi: false }
+            ],
+            currentRound: 0, 
+            honba: 0,
+            riichiSticks: 0,
+            rules: {
+                startPoints: 25000,
+                returnPoints: 30000,
+                uma: [30, 10, -10, -30]
+            },
+            history: [],
+            scoreHistoryGraph: []
+        };
+
+        let currentWinType = 'ron'; 
+        let selectedWinnerSeat = null;
+        let selectedLoserSeat = null;
+        let tenpaiStates = [false, false, false, false];
+        let adjustingSeatIdx = null;
+        let scoreChartInstance = null;
+        let diffTimer = null;
+        let lastDiffs = {};
+
+        window.onload = function() {
+            lucide.createIcons();
+            loadStateFromStorage();
+            renderAll();
+            initChart();
+
+            window.addEventListener('resize', checkLandscapeOptimization);
+            window.addEventListener('orientationchange', checkLandscapeOptimization);
+            checkLandscapeOptimization();
+        };
+
+        function checkLandscapeOptimization() {
+            const tableSection = document.getElementById('view-table');
+            const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
+            
+            if (isLandscape && !document.getElementById('view-table').classList.contains('hidden')) {
+                tableSection.classList.add('landscape-maximize');
+                const pGrid = document.getElementById('playersGrid');
+                if (pGrid) pGrid.classList.add('landscape-grid');
+            } else {
+                tableSection.classList.remove('landscape-maximize');
+                const pGrid = document.getElementById('playersGrid');
+                if (pGrid) pGrid.classList.remove('landscape-grid');
+            }
+        }
+
+        function renderAll() {
+            renderHeaderMeta();
+            renderPlayers();
+            renderRankingTable();
+            renderHistoryLog();
+            if (scoreChartInstance) updateChart();
+            saveStateToStorage();
+        }
+
+        function renderHeaderMeta() {
+            const windIdx = Math.floor(appState.currentRound / 4);
+            const windName = windIdx === 0 ? '東' : (windIdx === 1 ? '南' : '西');
+            const roundNum = (appState.currentRound % 4) + 1;
+
+            document.getElementById('currentRoundText').innerText = `${windName} ${roundNum} 局`;
+            document.getElementById('honbaText').innerText = `${appState.honba}本場`;
+            document.getElementById('riichiStickText').innerText = `立直 ${appState.riichiSticks}`;
+        }
+
+        function renderPlayers() {
+            const grid = document.getElementById('playersGrid');
+            grid.innerHTML = '';
+
+            const dealerIdx = appState.currentRound % 4;
+
+            appState.activePlayerIds.forEach((pId, seatIdx) => {
+                const playerObj = appState.allPlayers.find(p => p.id === pId) || { name: '未設定' };
+                const seatData = appState.tableSeats[seatIdx];
+                const isDealer = seatIdx === dealerIdx;
+                const wind = Winds[seatIdx];
+                const diffVal = lastDiffs[seatIdx];
+
+                let diffHtml = '';
+                if (diffVal !== undefined && diffVal !== null) {
+                    const diffClass = diffVal > 0 ? 'text-neon-green' : (diffVal < 0 ? 'text-neon-pink' : 'text-gray-400');
+                    const diffText = diffVal > 0 ? `+${diffVal.toLocaleString()}` : `${diffVal.toLocaleString()}`;
+                    diffHtml = `<div class="diff-fade text-xs sm:text-sm font-bold ${diffClass} mt-0.5">${diffText}</div>`;
+                } else {
+                    diffHtml = `<div class="diff-fade text-xs sm:text-sm font-bold opacity-0 mt-0.5">-</div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = `relative p-2 sm:p-3 rounded-2xl bg-neon-card border transition-all duration-300 flex flex-col justify-between overflow-hidden ${
+                    isDealer ? 'border-neon-pink glow-pink' : 'border-gray-800 hover:border-gray-700'
+                } ${seatData.riichi ? 'ring-2 ring-neon-yellow' : ''}`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center gap-1">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="px-2 py-0.5 rounded-lg text-xs font-black shrink-0 ${isDealer ? 'bg-neon-pink text-white' : 'bg-gray-800 text-cyan-400'}">
+                                ${wind}
+                            </span>
+                            <h3 class="font-bold text-xs sm:text-base tracking-wide text-white truncate">${playerObj.name}</h3>
+                        </div>
+                        ${seatData.riichi ? '<span class="text-[10px] sm:text-xs font-black bg-neon-yellow text-black px-1.5 py-0.5 rounded shrink-0 animate-pulse">立直</span>' : ''}
+                    </div>
+
+                    <div class="my-auto py-1 text-center flex flex-col items-center justify-center flex-grow">
+                        <div class="text-3xl sm:text-5xl md:text-6xl font-black font-orbitron tracking-tighter leading-none w-full truncate ${seatData.score < 0 ? 'text-red-500' : 'text-neon-cyan text-glow-cyan'}">
+                            ${seatData.score.toLocaleString()}
+                        </div>
+                        ${diffHtml}
+                    </div>
+
+                    <div class="flex gap-1.5 mt-1 shrink-0">
+                        <button onclick="toggleRiichi(${seatIdx})" class="flex-1 py-1.5 text-xs font-bold rounded-xl border ${
+                            seatData.riichi 
+                                ? 'bg-neon-yellow text-black border-neon-yellow font-extrabold' 
+                                : 'bg-black/40 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10'
+                        }">
+                            <i data-lucide="minus-circle" class="w-3.5 h-3.5 inline mr-0.5"></i> 立直
+                        </button>
+                        <button onclick="openAdjustModal(${seatIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-xl bg-black/40 text-gray-400 border border-gray-800 hover:text-white">
+                            <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function autoCalculateScore() {
+            if (selectedWinnerSeat === null) return;
+            const hanVal = document.getElementById('scoreHan').value;
+            const fuVal = parseInt(document.getElementById('scoreFu').value) || 30;
+            if (!hanVal) return;
+
+            const han = parseInt(hanVal);
+            const dealerIdx = appState.currentRound % 4;
+            const isDealer = selectedWinnerSeat === dealerIdx;
+
+            let score = 0;
+
+            if (han >= 13) score = isDealer ? 48000 : 32000;
+            else if (han >= 11) score = isDealer ? 36000 : 24000;
+            else if (han >= 8) score = isDealer ? 24000 : 16000;
+            else if (han >= 6) score = isDealer ? 18000 : 12000;
+            else if (han >= 5) score = isDealer ? 12000 : 8000;
+            else {
+                let basePoint = fuVal * Math.pow(2, han + 2);
+                if (basePoint >= 2000) {
+                    score = isDealer ? 12000 : 8000;
+                } else {
+                    if (currentWinType === 'ron') {
+                        let total = basePoint * (isDealer ? 6 : 4);
+                        score = Math.ceil(total / 100) * 100;
+                    } else {
+                        let dealerPay = Math.ceil((basePoint * 2) / 100) * 100;
+                        let playerPay = Math.ceil(basePoint / 100) * 100;
+                        if (isDealer) {
+                            score = playerPay * 3;
+                        } else {
+                            score = dealerPay + (playerPay * 2);
+                        }
+                    }
+                }
+            }
+
+            document.getElementById('customMoveScore').value = score;
+        }
+
+        function openScoringModal() {
+            setWinType('ron');
+            document.getElementById('scoreHan').value = '';
+            document.getElementById('scoreFu').value = '30';
+            document.getElementById('customMoveScore').value = '';
+            document.getElementById('scoringModal').classList.remove('hidden');
+        }
+
+        function setWinType(type) {
+            currentWinType = type;
+            const ronBtn = document.getElementById('winTypeRon');
+            const tsumoBtn = document.getElementById('winTypeTsumo');
+            const loserContainer = document.getElementById('loserSelectContainer');
+
+            if (type === 'ron') {
+                ronBtn.className = 'py-2 rounded-xl border text-xs font-bold transition bg-neon-pink/30 border-neon-pink text-neon-pink';
+                tsumoBtn.className = 'py-2 rounded-xl border text-xs font-bold transition bg-black/40 border-gray-800 text-gray-400';
+                loserContainer.style.display = 'block';
+            } else {
+                tsumoBtn.className = 'py-2 rounded-xl border text-xs font-bold transition bg-neon-cyan/30 border-neon-cyan text-neon-cyan';
+                ronBtn.className = 'py-2 rounded-xl border text-xs font-bold transition bg-black/40 border-gray-800 text-gray-400';
+                loserContainer.style.display = 'none';
+            }
+            renderModalPlayerSelectors();
+            autoCalculateScore();
+        }
+
+        function renderModalPlayerSelectors() {
+            const winnerGrid = document.getElementById('winnerSelectGrid');
+            const loserGrid = document.getElementById('loserSelectGrid');
+            winnerGrid.innerHTML = '';
+            loserGrid.innerHTML = '';
+
+            appState.activePlayerIds.forEach((pId, seatIdx) => {
+                const playerObj = appState.allPlayers.find(p => p.id === pId) || { name: '名無し' };
+                const wBtn = document.createElement('button');
+                wBtn.type = 'button';
+                wBtn.className = `p-2 rounded-xl border text-xs font-bold transition ${
+                    selectedWinnerSeat === seatIdx 
+                        ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan' 
+                        : 'bg-black/40 border-gray-800 text-gray-300'
+                }`;
+                wBtn.innerText = `${Winds[seatIdx]}: ${playerObj.name}`;
+                wBtn.onclick = () => { 
+                    selectedWinnerSeat = seatIdx; 
+                    renderModalPlayerSelectors(); 
+                    autoCalculateScore();
+                };
+                winnerGrid.appendChild(wBtn);
+
+                if (currentWinType === 'ron') {
+                    const lBtn = document.createElement('button');
+                    lBtn.type = 'button';
+                    lBtn.className = `p-2 rounded-xl border text-xs font-bold transition ${
+                        selectedLoserSeat === seatIdx 
+                            ? 'bg-neon-pink/30 border-neon-pink text-neon-pink' 
+                            : 'bg-black/40 border-gray-800 text-gray-300'
+                    }`;
+                    lBtn.innerText = `${Winds[seatIdx]}: ${playerObj.name}`;
+                    lBtn.onclick = () => { selectedLoserSeat = seatIdx; renderModalPlayerSelectors(); };
+                    loserGrid.appendChild(lBtn);
+                }
+            });
+        }
+
+        function handleScoreSubmit(e) {
+            e.preventDefault();
+            if (selectedWinnerSeat === null) {
+                alert('和了者を選択してください');
+                return;
+            }
+            if (currentWinType === 'ron' && (selectedLoserSeat === null || selectedWinnerSeat === selectedLoserSeat)) {
+                alert('正しく放銃者を選択してください');
+                return;
+            }
+
+            const moveScore = parseInt(document.getElementById('customMoveScore').value) || 0;
+            if (moveScore <= 0) {
+                alert('有効な点数を入力してください');
+                return;
+            }
+
+            const dealerIdx = appState.currentRound % 4;
+            const isDealer = selectedWinnerSeat === dealerIdx;
+            const honbaBonus = appState.honba * 300;
+            const riichiBonus = appState.riichiSticks * 1000;
+
+            const diffs = { 0: 0, 1: 0, 2: 0, 3: 0 };
+
+            if (currentWinType === 'ron') {
+                const totalGain = moveScore + honbaBonus + riichiBonus;
+                diffs[selectedWinnerSeat] = totalGain;
+                diffs[selectedLoserSeat] = -(moveScore + honbaBonus);
+
+                appState.tableSeats[selectedWinnerSeat].score += diffs[selectedWinnerSeat];
+                appState.tableSeats[selectedLoserSeat].score += diffs[selectedLoserSeat];
+            } else {
+                if (isDealer) {
+                    const payEach = Math.ceil((moveScore / 3) / 100) * 100;
+                    appState.tableSeats.forEach((seat, idx) => {
+                        if (idx === selectedWinnerSeat) {
+                            diffs[idx] = (payEach * 3) + honbaBonus + riichiBonus;
+                        } else {
+                            diffs[idx] = -(payEach + (appState.honba * 100));
+                        }
+                        seat.score += diffs[idx];
+                    });
+                } else {
+                    const payDealer = Math.ceil((moveScore / 2) / 100) * 100;
+                    const payOther = Math.ceil((moveScore / 4) / 100) * 100;
+                    appState.tableSeats.forEach((seat, idx) => {
+                        if (idx === selectedWinnerSeat) {
+                            diffs[idx] = payDealer + (payOther * 2) + honbaBonus + riichiBonus;
+                        } else if (idx === dealerIdx) {
+                            diffs[idx] = -(payDealer + (appState.honba * 100));
+                        } else {
+                            diffs[idx] = -(payOther + (appState.honba * 100));
+                        }
+                        seat.score += diffs[idx];
+                    });
+                }
+            }
+
+            lastDiffs = diffs;
+            if (diffTimer) clearTimeout(diffTimer);
+            diffTimer = setTimeout(() => {
+                lastDiffs = {};
+                renderPlayers();
+            }, 5000);
+
+            appState.tableSeats.forEach(s => s.riichi = false);
+            appState.riichiSticks = 0;
+
+            if (selectedWinnerSeat === dealerIdx) {
+                appState.honba += 1;
+            } else {
+                advanceRound();
+            }
+
+            closeModal('scoringModal');
+            resetModalSelections();
+            renderAll();
+        }
+
+        function advanceRound() {
+            appState.honba = 0;
+            appState.currentRound += 1;
+
+            if (appState.currentRound === 8) {
+                const topScore = Math.max(...appState.tableSeats.map(s => s.score));
+                if (topScore >= 30000) {
+                    setTimeout(() => {
+                        alert('南4局終了：30,000点到達者がいるため半荘終了となります。');
+                        confirmEndMatch();
+                    }, 200);
+                } else {
+                    alert('南4局終了：全員30,000点未満のため【西入】します。');
+                }
+            } else if (appState.currentRound > 8) {
+                const topScore = Math.max(...appState.tableSeats.map(s => s.score));
+                if (topScore >= 30000 || appState.currentRound >= 12) {
+                    setTimeout(() => {
+                        alert('西場終了条件（30,000点オーバーまたは西4局終了）を満たしたため半荘終了となります。');
+                        confirmEndMatch();
+                    }, 200);
+                }
+            }
+        }
+
+        function openRyuukyouModal() {
+            tenpaiStates = [false, false, false, false];
+            const grid = document.getElementById('tenpaiCheckGrid');
+            grid.innerHTML = '';
+
+            appState.activePlayerIds.forEach((pId, seatIdx) => {
+                const playerObj = appState.allPlayers.find(p => p.id === pId) || { name: '名無し' };
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.id = `tenpaiBtn-${seatIdx}`;
+                btn.className = 'p-2.5 rounded-xl border border-gray-700 bg-black/40 text-xs font-bold text-gray-400';
+                btn.innerText = `${Winds[seatIdx]}: ${playerObj.name}\n(ノーテン)`;
+                btn.onclick = () => {
+                    tenpaiStates[seatIdx] = !tenpaiStates[seatIdx];
+                    btn.className = tenpaiStates[seatIdx]
+                        ? 'p-2.5 rounded-xl border border-neon-cyan bg-neon-cyan/20 text-xs font-bold text-neon-cyan'
+                        : 'p-2.5 rounded-xl border border-gray-700 bg-black/40 text-xs font-bold text-gray-400';
+                    btn.innerText = `${Winds[seatIdx]}: ${playerObj.name}\n(${tenpaiStates[seatIdx] ? '聴牌' : 'ノーテン'})`;
+                };
+                grid.appendChild(btn);
+            });
+
+            document.getElementById('ryuukyouModal').classList.remove('hidden');
+        }
+
+        function applyRyuukyou() {
+            const tenpaiCount = tenpaiStates.filter(Boolean).length;
+            const dealerIdx = appState.currentRound % 4;
+            const dealerTenpai = tenpaiStates[dealerIdx];
+            const diffs = { 0: 0, 1: 0, 2: 0, 3: 0 };
+
+            if (tenpaiCount > 0 && tenpaiCount < 4) {
+                const receiveAmount = 3000 / tenpaiCount;
+                const payAmount = 3000 / (4 - tenpaiCount);
+
+                appState.tableSeats.forEach((seat, idx) => {
+                    if (tenpaiStates[idx]) {
+                        diffs[idx] = receiveAmount;
+                    } else {
+                        diffs[idx] = -payAmount;
+                    }
+                    seat.score += diffs[idx];
+                });
+
+                lastDiffs = diffs;
+                if (diffTimer) clearTimeout(diffTimer);
+                diffTimer = setTimeout(() => {
+                    lastDiffs = {};
+                    renderPlayers();
+                }, 5000);
+            }
+
+            appState.honba += 1;
+
+            if (!dealerTenpai) {
+                appState.currentRound += 1;
+
+                if (appState.currentRound === 8) {
+                    const topScore = Math.max(...appState.tableSeats.map(s => s.score));
+                    if (topScore >= 30000) {
+                        setTimeout(() => {
+                            alert('南4局終了：30,000点到達者がいるため半荘終了となります。');
+                            confirmEndMatch();
+                        }, 200);
+                    } else {
+                        alert('南4局終了：全員30,000点未満のため【西入】します。');
+                    }
+                } else if (appState.currentRound > 8) {
+                    const topScore = Math.max(...appState.tableSeats.map(s => s.score));
+                    if (topScore >= 30000 || appState.currentRound >= 12) {
+                        setTimeout(() => {
+                            alert('西場終了条件を満たしたため半荘終了となります。');
+                            confirmEndMatch();
+                        }, 200);
+                    }
+                }
+            }
+
+            appState.tableSeats.forEach(s => s.riichi = false);
+
+            closeModal('ryuukyouModal');
+            renderAll();
+        }
+
+        function toggleRiichi(seatIdx) {
+            const seat = appState.tableSeats[seatIdx];
+            if (!seat) return;
+
+            if (!seat.riichi) {
+                if (seat.score >= 1000) {
+                    seat.score -= 1000;
+                    seat.riichi = true;
+                    appState.riichiSticks += 1;
+                } else {
+                    alert('点数が足りません');
+                }
+            } else {
+                seat.score += 1000;
+                seat.riichi = false;
+                appState.riichiSticks -= 1;
+            }
+            renderAll();
+        }
+
+        function confirmEndMatch() {
+            if (!confirm('半荘を終了して最終計算（ウマ・オカ）を適用し、結果を保存しますか？')) return;
+
+            const activePlayersData = appState.activePlayerIds.map((pId, seatIdx) => {
+                const pObj = appState.allPlayers.find(p => p.id === pId) || { name: `ID:${pId}` };
+                return {
+                    id: pId,
+                    name: pObj.name,
+                    score: appState.tableSeats[seatIdx].score
+                };
+            });
+
+            activePlayersData.sort((a, b) => b.score - a.score);
+            
+            const returnPts = appState.rules.returnPoints;
+            const startPts = appState.rules.startPoints;
+            const oka = (returnPts - startPts) * 4 / 1000;
+            const uma = appState.rules.uma;
+
+            const matchResult = {
+                id: Date.now(),
+                date: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+                scores: {},
+                points: {}
+            };
+
+            activePlayersData.forEach((player, rank) => {
+                let p = (player.score - returnPts) / 1000;
+                p += uma[rank];
+                if (rank === 0) p += oka;
+
+                matchResult.scores[player.name] = player.score;
+                matchResult.points[player.name] = parseFloat(p.toFixed(1));
+            });
+
+            appState.history.push(matchResult);
+            recordGraphEntry(`半荘 ${appState.history.length}`);
+
+            appState.tableSeats.forEach(s => {
+                s.score = appState.rules.startPoints;
+                s.riichi = false;
+            });
+            appState.currentRound = 0;
+            appState.honba = 0;
+            appState.riichiSticks = 0;
+            lastDiffs = {};
+
+            renderAll();
+            alert('半荘の結果が保存されました！メンバーを変更する場合は「卓替え/抜け番」ボタンを押してください。');
+        }
+
+        function recordGraphEntry(label) {
+            const entry = { game: label };
+            
+            appState.allPlayers.forEach(p => {
+                let totalP = 0;
+                appState.history.forEach(h => {
+                    totalP += (h.points[p.name] || 0);
+                });
+                entry[p.name] = parseFloat(totalP.toFixed(1));
+            });
+
+            if (appState.scoreHistoryGraph.length === 0) {
+                const base = { game: '開始' };
+                appState.allPlayers.forEach(p => base[p.name] = 0);
+                appState.scoreHistoryGraph.push(base);
+            }
+
+            appState.scoreHistoryGraph.push(entry);
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+
+            scoreChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['開始'],
+                    datasets: appState.allPlayers.map((p, idx) => ({
+                        label: p.name,
+                        data: [0],
+                        borderColor: Palette[idx % Palette.length],
+                        backgroundColor: Palette[idx % Palette.length] + '20',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 4
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff', font: { family: 'Zen Maru Gothic' } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8888aa' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            ticks: { color: '#8888aa' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!scoreChartInstance) return;
+
+            const labels = appState.scoreHistoryGraph.map(g => g.game);
+            scoreChartInstance.data.labels = labels;
+
+            scoreChartInstance.data.datasets = appState.allPlayers.map((p, idx) => {
+                const datasetData = appState.scoreHistoryGraph.map(g => g[p.name] !== undefined ? g[p.name] : 0);
+                return {
+                    label: p.name,
+                    data: datasetData,
+                    borderColor: Palette[idx % Palette.length],
+                    backgroundColor: Palette[idx % Palette.length],
+                    borderWidth: 3,
+                    tension: 0.3,
+                    pointRadius: 4
+                };
+            });
+
+            scoreChartInstance.update();
+        }
+
+        function renderRankingTable() {
+            const tbody = document.getElementById('rankingTableBody');
+            tbody.innerHTML = '';
+
+            const stats = appState.allPlayers.map(p => {
+                let totalP = 0;
+                let games = 0;
+                let wins = 0;
+                let totalRanks = 0;
+
+                appState.history.forEach(h => {
+                    if (h.points[p.name] !== undefined) {
+                        games++;
+                        totalP += h.points[p.name];
+                        
+                        const matchScores = Object.entries(h.scores).sort((a,b) => b[1] - a[1]);
+                        const r = matchScores.findIndex(entry => entry[0] === p.name) + 1;
+                        if (r === 1) wins++;
+                        totalRanks += r;
+                    }
+                });
+
+                return {
+                    name: p.name,
+                    totalP: parseFloat(totalP.toFixed(1)),
+                    games,
+                    topRate: games > 0 ? ((wins / games) * 100).toFixed(0) + '%' : '-',
+                    avgRank: games > 0 ? (totalRanks / games).toFixed(2) : '-'
+                };
+            });
+
+            stats.sort((a, b) => b.totalP - a.totalP);
+
+            stats.forEach((s, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/5 transition';
+                tr.innerHTML = `
+                    <td class="p-2">
+                        <span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-black ${
+                            idx === 0 ? 'bg-yellow-400 text-black' : idx === 1 ? 'bg-gray-300 text-black' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-400'
+                        }">
+                            ${idx + 1}
+                        </span>
+                    </td>
+                    <td class="p-2 text-white">${s.name}</td>
+                    <td class="p-2 text-right font-orbitron font-black ${s.totalP >= 0 ? 'text-neon-cyan' : 'text-red-400'}">
+                        ${s.totalP > 0 ? '+' : ''}${s.totalP}
+                    </td>
+                    <td class="p-2 text-center text-gray-400">${s.games}</td>
+                    <td class="p-2 text-center text-neon-yellow">${s.topRate}</td>
+                    <td class="p-2 text-center text-gray-300">${s.avgRank}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderHistoryLog() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+
+            if (appState.history.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-500 py-6 text-xs">まだ終了した対局はありません</div>';
+                return;
+            }
+
+            appState.history.slice().reverse().forEach((match, idx) => {
+                const card = document.createElement('div');
+                card.className = 'bg-neon-card p-3 rounded-2xl border border-gray-800 space-y-1.5';
+
+                let playerRows = '';
+                Object.entries(match.points).sort((a,b) => b[1] - a[1]).forEach(([pName, pts], rank) => {
+                    const rawScore = match.scores[pName];
+                    playerRows += `
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-300">${rank + 1}. ${pName} (${rawScore.toLocaleString()}点)</span>
+                            <span class="font-orbitron font-bold ${pts >= 0 ? 'text-neon-cyan' : 'text-neon-pink'}">${pts > 0 ? '+' : ''}${pts}pt</span>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-gray-800 pb-1">
+                        <span class="font-bold text-[10px] text-neon-yellow">半荘 #${appState.history.length - idx}</span>
+                        <span class="text-[10px] text-gray-500">${match.date}</span>
+                    </div>
+                    <div class="space-y-0.5">
+                        ${playerRows}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function openMemberSelectModal() {
+            const container = document.getElementById('seatAssignmentContainer');
+            container.innerHTML = '';
+
+            Winds.forEach((wind, seatIdx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-gray-800';
+
+                let options = appState.allPlayers.map(p => {
+                    const selected = appState.activePlayerIds[seatIdx] === p.id ? 'selected' : '';
+                    return `<option value="${p.id}" ${selected}>${p.name}</option>`;
+                }).join('');
+
+                row.innerHTML = `
+                    <span class="w-10 text-center py-1 bg-neon-purple/20 border border-neon-purple/50 text-neon-cyan rounded-lg text-xs font-bold shrink-0">${wind}家</span>
+                    <select id="seatSelect-${seatIdx}" class="flex-grow bg-black/60 border border-gray-700 p-2 rounded-xl text-xs text-white focus:border-neon-cyan outline-none">
+                        ${options}
+                    </select>
+                `;
+                container.appendChild(row);
+            });
+
+            document.getElementById('memberSelectModal').classList.remove('hidden');
+        }
+
+        function saveActiveMembers() {
+            const selected = [];
+            for (let i = 0; i < 4; i++) {
+                const val = parseInt(document.getElementById(`seatSelect-${i}`).value);
+                selected.push(val);
+            }
+
+            const unique = new Set(selected);
+            if (unique.size < 4) {
+                alert('同じプレイヤーを複数の席に配置することはできません。重複を解消してください。');
+                return;
+            }
+
+            appState.activePlayerIds = selected;
+            closeModal('memberSelectModal');
+            renderAll();
+        }
+
+        function switchTab(tabName) {
+            ['table', 'rank', 'history'].forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                if (t === tabName) {
+                    view.classList.remove('hidden');
+                    btn.className = 'tab-btn active flex-1 py-1 text-xs sm:text-sm font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-neon-cyan border border-neon-cyan/50';
+                } else {
+                    view.classList.add('hidden');
+                    btn.className = 'tab-btn flex-1 py-1 text-xs sm:text-sm font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 text-gray-400 hover:text-white';
+                }
+            });
+
+            checkLandscapeOptimization();
+            if (tabName === 'rank') {
+                setTimeout(updateChart, 100);
+            }
+        }
+
+        function openSettingsModal() {
+            renderPlayerInputs();
+            document.getElementById('startPoints').value = appState.rules.startPoints;
+            document.getElementById('returnPoints').value = appState.rules.returnPoints;
+
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function renderPlayerInputs() {
+            const container = document.getElementById('playerInputs');
+            container.innerHTML = '';
+
+            appState.allPlayers.forEach((p, idx) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-1';
+                div.innerHTML = `
+                    <input type="text" id="pNameInput-${p.id}" class="bg-black/60 border border-gray-700 p-2 rounded-xl text-xs w-full" value="${p.name}">
+                    ${appState.allPlayers.length > 4 ? `
+                        <button type="button" onclick="removePlayerInput(${p.id})" class="p-1.5 text-red-400 hover:text-red-300 shrink-0">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    ` : ''}
+                `;
+                container.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function addNewPlayerInput() {
+            const newId = Date.now();
+            appState.allPlayers.push({ id: newId, name: `プレイヤー${appState.allPlayers.length + 1}` });
+            renderPlayerInputs();
+        }
+
+        function removePlayerInput(id) {
+            if (appState.allPlayers.length <= 4) {
+                alert('最低4名のプレイヤーが必要です。');
+                return;
+            }
+            appState.allPlayers = appState.allPlayers.filter(p => p.id !== id);
+            renderPlayerInputs();
+        }
+
+        function saveSettings() {
+            appState.allPlayers.forEach(p => {
+                const input = document.getElementById(`pNameInput-${p.id}`);
+                if (input) {
+                    p.name = input.value || `プレイヤー${p.id}`;
+                }
+            });
+
+            appState.rules.startPoints = parseInt(document.getElementById('startPoints').value) || 25000;
+            appState.rules.returnPoints = parseInt(document.getElementById('returnPoints').value) || 30000;
+
+            const umaVal = document.getElementById('umaSetting').value;
+            if (umaVal === '10-30') appState.rules.uma = [30, 10, -10, -30];
+            else if (umaVal === '10-20') appState.rules.uma = [20, 10, -10, -20];
+            else if (umaVal === '5-10') appState.rules.uma = [10, 5, -5, -10];
+            else appState.rules.uma = [0, 0, 0, 0];
+
+            // 卓上の4名が削除されていた場合の安全策
+            for (let i = 0; i < 4; i++) {
+                if (!appState.allPlayers.some(p => p.id === appState.activePlayerIds[i])) {
+                    appState.activePlayerIds[i] = appState.allPlayers[i].id;
+                }
+            }
+
+            closeModal('settingsModal');
+            renderAll();
+        }
+
+        function openAdjustModal(seatIdx) {
+            adjustingSeatIdx = seatIdx;
+            const pId = appState.activePlayerIds[seatIdx];
+            const pObj = appState.allPlayers.find(p => p.id === pId) || { name: '名無し' };
+            document.getElementById('adjustPlayerName').innerText = `${Winds[seatIdx]}: ${pObj.name} の点数を編集`;
+            document.getElementById('adjustScoreInput').value = appState.tableSeats[seatIdx].score;
+            document.getElementById('adjustModal').classList.remove('hidden');
+        }
+
+        function applyScoreAdjustment() {
+            const val = parseInt(document.getElementById('adjustScoreInput').value);
+            if (!isNaN(val) && adjustingSeatIdx !== null) {
+                appState.tableSeats[adjustingSeatIdx].score = val;
+            }
+            closeModal('adjustModal');
+            renderAll();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function resetModalSelections() {
+            selectedWinnerSeat = null;
+            selectedLoserSeat = null;
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('neon_mahjong_state_v2', JSON.stringify(appState));
+        }
+
+        function loadStateFromStorage() {
+            const saved = localStorage.getItem('neon_mahjong_state_v2');
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                } catch (e) {
+                    console.error('Storage parse error', e);
+                }
+            }
+        }
+
+        function resetAllData() {
+            if (!confirm('全ての対局データおよび推移グラフをリセットしますか？')) return;
+            localStorage.removeItem('neon_mahjong_state_v2');
+            location.reload();
+        }
+    </script>
+</body>
+</html>
