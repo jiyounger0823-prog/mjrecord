@@ -1,0 +1,1002 @@
+#修正後の完全なHTMLコードです。そのままコピー＆ペーストしてファイルを更新してください。
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Mahjong Manager & Live Ranking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neon: {
+                            cyan: '#00f3ff',
+                            pink: '#ff007f',
+                            purple: '#b000ff',
+                            yellow: '#ffe600',
+                            green: '#00ff66',
+                            dark: '#0a0a12',
+                            card: '#121225'
+                        }
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        japanese: ['Zen Maru Gothic', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #06060c;
+            color: #ffffff;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Neon Glow Effects */
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.6);
+        }
+        .glow-pink {
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            border: 1px solid rgba(255, 0, 127, 0.6);
+        }
+        .glow-purple {
+            box-shadow: 0 0 15px rgba(176, 0, 255, 0.4);
+            border: 1px solid rgba(176, 0, 255, 0.6);
+        }
+        .text-glow-cyan {
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.8);
+        }
+        .text-glow-pink {
+            text-shadow: 0 0 8px rgba(255, 0, 127, 0.8);
+        }
+        .text-glow-yellow {
+            text-shadow: 0 0 8px rgba(255, 230, 0, 0.8);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a12;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #252545;
+            border-radius: 3px;
+        }
+
+        /* Viewport fitting height calculation */
+        .table-view-container {
+            height: calc(100vh - 120px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Landscape Optimization */
+        @media (orientation: landscape) {
+            .landscape-maximize {
+                position: fixed !important;
+                inset: 0 !important;
+                z-index: 50 !important;
+                background-color: #06060c !important;
+                padding: 0.5rem !important;
+                height: 100vh !important;
+                width: 100vw !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            .landscape-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+                flex-grow: 1 !important;
+                height: calc(100vh - 60px) !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col justify-between selection:bg-neon-pink selection:text-white overflow-hidden">
+
+    <!-- Header without title for max width -->
+    <header id="mainHeader" class="bg-neon-card/80 backdrop-blur-md border-b border-cyan-500/30 sticky top-0 z-40 px-3 py-2 shrink-0">
+        <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
+            <!-- Quick Info Bar (Expanded and single line) -->
+            <div id="gameMetaBadge" class="bg-black/50 border border-purple-500/40 rounded-full px-3 py-1 text-xs sm:text-sm text-purple-300 flex items-center justify-between gap-2 flex-1 max-w-md">
+                <span id="currentRoundText" class="font-bold text-white whitespace-nowrap">東 1 局</span>
+                <span id="honbaText" class="text-xs bg-purple-900/60 text-purple-200 px-2 py-0.5 rounded whitespace-nowrap">0本場</span>
+                <span id="riichiStickText" class="text-xs bg-yellow-900/60 text-yellow-200 px-2 py-0.5 rounded whitespace-nowrap">立直 0</span>
+            </div>
+            
+            <button onclick="openSettingsModal()" class="p-1.5 bg-neon-dark border border-gray-700 hover:border-neon-cyan rounded-xl transition text-gray-300 hover:text-neon-cyan shrink-0">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <nav id="topNav" class="bg-neon-dark/90 border-b border-gray-800 px-3 py-1.5 sticky top-[49px] z-30 shrink-0">
+        <div class="max-w-md mx-auto flex justify-around bg-black/40 p-1 rounded-2xl border border-gray-800">
+            <button onclick="switchTab('table')" id="tabBtn-table" class="tab-btn active flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-neon-cyan border border-neon-cyan/50">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                <span>卓上表示</span>
+            </button>
+            <button onclick="switchTab('rank')" id="tabBtn-rank" class="tab-btn flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 text-gray-400 hover:text-white">
+                <i data-lucide="line-chart" class="w-3.5 h-3.5"></i>
+                <span>推移＆順位</span>
+            </button>
+            <button onclick="switchTab('history')" id="tabBtn-history" class="tab-btn flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 text-gray-400 hover:text-white">
+                <i data-lucide="history" class="w-3.5 h-3.5"></i>
+                <span>対局履歴</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto w-full p-2 md:p-4 flex-grow overflow-hidden flex flex-col justify-start">
+
+        <!-- ================= TAB 1: TABLE DISPLAY (卓上表示) ================= -->
+        <section id="view-table" class="table-view-container gap-2">
+            <!-- Table Header Toolbar -->
+            <div id="tableHeaderBar" class="flex justify-between items-center bg-neon-card p-2 rounded-2xl border border-purple-900/50 shrink-0">
+                <div class="flex gap-1.5">
+                    <button onclick="openScoringModal('ron')" class="px-2.5 py-1 bg-neon-pink/20 hover:bg-neon-pink/30 text-neon-pink border border-neon-pink/50 rounded-xl font-bold text-xs flex items-center gap-1">
+                        <i data-lucide="zap" class="w-3.5 h-3.5"></i> ロン
+                    </button>
+                    <button onclick="openScoringModal('tsumo')" class="px-2.5 py-1 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50 rounded-xl font-bold text-xs flex items-center gap-1">
+                        <i data-lucide="waves" class="w-3.5 h-3.5"></i> ツモ
+                    </button>
+                    <button onclick="openScoringModal('ryuukyou')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-xl font-bold text-xs">
+                        流局
+                    </button>
+                </div>
+                <button onclick="confirmEndMatch()" class="px-2.5 py-1 bg-gradient-to-r from-neon-yellow to-orange-500 text-black font-extrabold rounded-xl text-xs shadow-lg hover:brightness-110">
+                    半荘終了
+                </button>
+            </div>
+
+            <!-- Table Players Grid (Compact Vertically for Portrait Fit) -->
+            <div id="playersGrid" class="grid grid-cols-2 gap-2 flex-grow h-full min-h-0">
+                <!-- Dynamic Player Cards Generated by JS -->
+            </div>
+        </section>
+
+
+        <!-- ================= TAB 2: RANKING & GRAPH (推移＆順位) ================= -->
+        <section id="view-rank" class="hidden space-y-4 overflow-y-auto h-full pr-1">
+            <!-- Score Progression Live Chart -->
+            <div class="bg-neon-card p-4 rounded-2xl border border-neon-cyan/30 glow-cyan">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-neon-cyan flex items-center gap-1.5">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i> 本日のスコア推移（ポイント）
+                    </h2>
+                    <span class="text-[10px] text-gray-400">各半荘終了時に更新</span>
+                </div>
+                <div class="relative h-52 md:h-72 w-full">
+                    <canvas id="scoreChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Overall Ranking Table -->
+            <div class="bg-neon-card p-4 rounded-2xl border border-neon-purple/30 glow-purple">
+                <h2 class="text-sm font-bold text-neon-pink mb-3 flex items-center gap-1.5">
+                    <i data-lucide="trophy" class="w-4 h-4"></i> 本日の総合ランキング
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-800 text-[10px] text-gray-400 uppercase font-orbitron">
+                                <th class="p-2">順位</th>
+                                <th class="p-2">プレイヤー</th>
+                                <th class="p-2 text-right">トータルP</th>
+                                <th class="p-2 text-center">対局数</th>
+                                <th class="p-2 text-center">トップ率</th>
+                                <th class="p-2 text-center">平均順位</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingTableBody" class="divide-y divide-gray-800/60 text-xs font-bold">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= TAB 3: GAME HISTORY (対局履歴) ================= -->
+        <section id="view-history" class="hidden space-y-3 overflow-y-auto h-full pr-1">
+            <div class="flex justify-between items-center">
+                <h2 class="text-sm font-bold text-neon-yellow flex items-center gap-1.5">
+                    <i data-lucide="history" class="w-4 h-4"></i> 本日の対局ログ
+                </h2>
+                <button onclick="resetAllData()" class="px-2.5 py-1 bg-red-900/30 hover:bg-red-800/50 text-red-400 border border-red-700/50 rounded-xl text-[10px]">
+                    全データリセット
+                </button>
+            </div>
+            <div id="historyList" class="space-y-2">
+                <!-- Dynamic Match History Cards -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SCORING MODAL -->
+    <div id="scoringModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-cyan/50 rounded-3xl w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                <h3 id="scoringModalTitle" class="text-base font-bold text-neon-cyan">和了入力</h3>
+                <button onclick="closeModal('scoringModal')" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Form Body -->
+            <form id="scoringForm" onsubmit="handleScoreSubmit(event)" class="space-y-3">
+                <!-- Winner Selection -->
+                <div>
+                    <label class="block text-[10px] text-gray-400 mb-1">和了者 (アガリ)</label>
+                    <div id="winnerSelectGrid" class="grid grid-cols-2 gap-1.5">
+                        <!-- Dynamic Buttons -->
+                    </div>
+                </div>
+
+                <!-- Loser Selection (Ron Only) -->
+                <div id="loserSelectContainer">
+                    <label class="block text-[10px] text-gray-400 mb-1">放銃者 (ロンされた人)</label>
+                    <div id="loserSelectGrid" class="grid grid-cols-2 gap-1.5">
+                        <!-- Dynamic Buttons -->
+                    </div>
+                </div>
+
+                <!-- Han & Fu Selection -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">翻数 (ハン)</label>
+                        <select id="scoreHan" class="w-full bg-black/60 border border-gray-700 rounded-xl p-2 text-xs text-white focus:border-neon-cyan outline-none">
+                            <option value="1">1 翻</option>
+                            <option value="2">2 翻</option>
+                            <option value="3">3 翻</option>
+                            <option value="4">4 翻</option>
+                            <option value="5">満貫 (5翻)</option>
+                            <option value="6">跳満 (6-7翻)</option>
+                            <option value="8">倍満 (8-10翻)</option>
+                            <option value="11">三倍満 (11-12翻)</option>
+                            <option value="13">役満</option>
+                            <option value="26">W役満</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">符数 (フ)</label>
+                        <select id="scoreFu" class="w-full bg-black/60 border border-gray-700 rounded-xl p-2 text-xs text-white focus:border-neon-cyan outline-none">
+                            <option value="20">20 符 (ピンフツモ等)</option>
+                            <option value="25">25 符 (七対子)</option>
+                            <option value="30" selected>30 符</option>
+                            <option value="40">40 符</option>
+                            <option value="50">50 符</option>
+                            <option value="60">60 符</option>
+                            <option value="70">70 符</option>
+                            <option value="80">80 符</option>
+                            <option value="90">90 符</option>
+                            <option value="100">100 符</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-neon-cyan to-neon-purple font-extrabold text-black text-xs rounded-xl hover:brightness-110 shadow-lg">
+                    計算・スコア適用
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SETTINGS / SETUP MODAL -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-purple/50 rounded-3xl w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                <h3 class="text-base font-bold text-neon-purple">対局・ルール設定</h3>
+                <button onclick="closeModal('settingsModal')" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] text-gray-400 mb-1.5">プレイヤー名 (4名)</label>
+                    <div id="playerInputs" class="grid grid-cols-2 gap-2">
+                        <input type="text" id="pName0" class="bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="東家 プレイヤー1">
+                        <input type="text" id="pName1" class="bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="南家 プレイヤー2">
+                        <input type="text" id="pName2" class="bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="西家 プレイヤー3">
+                        <input type="text" id="pName3" class="bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="北家 プレイヤー4">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">配給原点 (配点)</label>
+                        <input type="number" id="startPoints" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="25000">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">返し点 (オカ基準)</label>
+                        <input type="number" id="returnPoints" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs" value="30000">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] text-gray-400 mb-1">ウマ (順位馬 1位-2位-3位-4位)</label>
+                    <select id="umaSetting" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs">
+                        <option value="10-30">ゴッツー / ワンツー (+30, +10, -10, -30)</option>
+                        <option value="10-20">+20, +10, -10, -20</option>
+                        <option value="5-10">+10, +5, -5, -10</option>
+                        <option value="0-0">ウマなし (0, 0, 0, 0)</option>
+                    </select>
+                </div>
+
+                <button onclick="saveSettings()" class="w-full py-2 bg-neon-purple hover:bg-purple-600 font-bold text-xs rounded-xl text-white">
+                    設定を保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADJUST SCORE MODAL -->
+    <div id="adjustModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neon-card border border-neon-yellow/50 rounded-3xl w-full max-w-sm p-4 space-y-3">
+            <h3 class="text-base font-bold text-neon-yellow">点数直接手入力調整</h3>
+            <p id="adjustPlayerName" class="text-xs font-bold text-gray-300"></p>
+            <div>
+                <label class="block text-[10px] text-gray-400 mb-1">調整後の点数</label>
+                <input type="number" id="adjustScoreInput" step="100" class="w-full bg-black/60 border border-gray-700 p-2.5 rounded-xl text-base font-bold font-orbitron text-neon-yellow">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeModal('adjustModal')" class="flex-1 py-2 bg-gray-800 text-gray-300 rounded-xl text-xs font-bold">キャンセル</button>
+                <button onclick="applyScoreAdjustment()" class="flex-1 py-2 bg-neon-yellow text-black rounded-xl text-xs font-bold">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const Winds = ['東', '南', '西', '北'];
+        
+        let appState = {
+            players: [
+                { id: 0, name: 'プレイヤー1', score: 25000, riichi: false },
+                { id: 1, name: 'プレイヤー2', score: 25000, riichi: false },
+                { id: 2, name: 'プレイヤー3', score: 25000, riichi: false },
+                { id: 3, name: 'プレイヤー4', score: 25000, riichi: false },
+            ],
+            currentRound: 0, // 0 = 東1局, 3 = 東4局, 4 = 南1局 ...
+            honba: 0,
+            riichiSticks: 0,
+            rules: {
+                startPoints: 25000,
+                returnPoints: 30000,
+                uma: [30, 10, -10, -30] // 10-30 rule: 1st +30, 2nd +10, 3rd -10, 4th -30
+            },
+            history: [], // Completed matches history
+            scoreHistoryGraph: [] // Game progression graph data [{game: "Start", p0: 0, p1: 0, p2: 0, p3: 0}]
+        };
+
+        let currentModalType = 'ron'; 
+        let selectedWinner = null;
+        let selectedLoser = null;
+        let adjustingPlayerId = null;
+        let scoreChartInstance = null;
+
+        window.onload = function() {
+            lucide.createIcons();
+            loadStateFromStorage();
+            renderAll();
+            initChart();
+
+            // Detect orientation changes for Tabletop maximization
+            window.addEventListener('resize', checkLandscapeOptimization);
+            window.addEventListener('orientationchange', checkLandscapeOptimization);
+            checkLandscapeOptimization();
+        };
+
+        function checkLandscapeOptimization() {
+            const tableSection = document.getElementById('view-table');
+            const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
+            
+            if (isLandscape && !document.getElementById('view-table').classList.contains('hidden')) {
+                tableSection.classList.add('landscape-maximize');
+                const pGrid = document.getElementById('playersGrid');
+                if (pGrid) pGrid.classList.add('landscape-grid');
+            } else {
+                tableSection.classList.remove('landscape-maximize');
+                const pGrid = document.getElementById('playersGrid');
+                if (pGrid) pGrid.classList.remove('landscape-grid');
+            }
+        }
+
+        function renderAll() {
+            renderHeaderMeta();
+            renderPlayers();
+            renderRankingTable();
+            renderHistoryLog();
+            if (scoreChartInstance) updateChart();
+            saveStateToStorage();
+        }
+
+        function renderHeaderMeta() {
+            const windIdx = Math.floor(appState.currentRound / 4);
+            const windName = windIdx === 0 ? '東' : (windIdx === 1 ? '南' : '西');
+            const roundNum = (appState.currentRound % 4) + 1;
+
+            document.getElementById('currentRoundText').innerText = `${windName} ${roundNum} 局`;
+            document.getElementById('honbaText').innerText = `${appState.honba}本場`;
+            document.getElementById('riichiStickText').innerText = `立直 ${appState.riichiSticks}`;
+        }
+
+        function renderPlayers() {
+            const grid = document.getElementById('playersGrid');
+            grid.innerHTML = '';
+
+            // Current Dealer index
+            const dealerIdx = appState.currentRound % 4;
+
+            appState.players.forEach((player, idx) => {
+                const isDealer = idx === dealerIdx;
+                const wind = Winds[idx];
+
+                const card = document.createElement('div');
+                card.className = `relative p-2.5 rounded-2xl bg-neon-card border transition-all duration-300 flex flex-col justify-between overflow-hidden ${
+                    isDealer ? 'border-neon-pink glow-pink' : 'border-gray-800 hover:border-gray-700'
+                } ${player.riichi ? 'ring-2 ring-neon-yellow' : ''}`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center gap-1">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="px-1.5 py-0.5 rounded-lg text-[10px] font-black shrink-0 ${isDealer ? 'bg-neon-pink text-white' : 'bg-gray-800 text-cyan-400'}">
+                                ${wind}
+                            </span>
+                            <h3 class="font-bold text-xs sm:text-sm tracking-wide text-white truncate">${player.name}</h3>
+                        </div>
+                        ${player.riichi ? '<span class="text-[9px] font-black bg-neon-yellow text-black px-1.5 py-0.2 rounded shrink-0 animate-pulse">立直</span>' : ''}
+                    </div>
+
+                    <div class="my-auto py-1 text-center">
+                        <div class="text-xl sm:text-3xl font-black font-orbitron tracking-tight leading-none ${player.score < 0 ? 'text-red-500' : 'text-neon-cyan text-glow-cyan'}">
+                            ${player.score.toLocaleString()}
+                        </div>
+                    </div>
+
+                    <!-- Player Quick Controls -->
+                    <div class="flex gap-1 mt-1 shrink-0">
+                        <button onclick="toggleRiichi(${player.id})" class="flex-1 py-1 text-[10px] font-bold rounded-lg border ${
+                            player.riichi 
+                                ? 'bg-neon-yellow text-black border-neon-yellow font-extrabold' 
+                                : 'bg-black/40 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10'
+                        }">
+                            <i data-lucide="minus-circle" class="w-3 h-3 inline mr-0.5"></i> 立直
+                        </button>
+                        <button onclick="openAdjustModal(${player.id})" class="p-1 text-[10px] font-bold rounded-lg bg-black/40 text-gray-400 border border-gray-800 hover:text-white">
+                            <i data-lucide="edit-2" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function calculateScore(han, fu, isDealer, isTsumo) {
+            han = parseInt(han);
+            fu = parseInt(fu);
+
+            let basicPoints = 0;
+
+            if (han >= 13) basicPoints = 8000 * (han / 13); // Yakuman
+            else if (han >= 11) basicPoints = 6000; // Sanbaiman
+            else if (han >= 8) basicPoints = 4800; // Baiman
+            else if (han >= 6) basicPoints = 3000; // Hanbaiman
+            else if (han >= 5) basicPoints = 2000; // Mangan
+            else {
+                basicPoints = fu * Math.pow(2, 2 + han);
+                if (basicPoints > 2000) basicPoints = 2000; // Cap at Mangan
+            }
+
+            if (isTsumo) {
+                if (isDealer) {
+                    const payEach = Math.ceil((basicPoints * 2) / 100) * 100;
+                    return { payEach, total: payEach * 3 };
+                } else {
+                    const payDealer = Math.ceil((basicPoints * 2) / 100) * 100;
+                    const payOther = Math.ceil((basicPoints) / 100) * 100;
+                    return { payDealer, payOther, total: payDealer + (payOther * 2) };
+                }
+            } else {
+                // Ron
+                const total = Math.ceil((basicPoints * (isDealer ? 6 : 4)) / 100) * 100;
+                return { total };
+            }
+        }
+
+        function openScoringModal(type) {
+            currentModalType = type;
+            const title = document.getElementById('scoringModalTitle');
+            const loserContainer = document.getElementById('loserSelectContainer');
+
+            if (type === 'ron') {
+                title.innerText = 'ロン 和了入力';
+                loserContainer.style.display = 'block';
+            } else if (type === 'tsumo') {
+                title.innerText = 'ツモ 和了入力';
+                loserContainer.style.display = 'none';
+            } else if (type === 'ryuukyou') {
+                handleRyuukyou();
+                return;
+            }
+
+            renderModalPlayerSelectors();
+            document.getElementById('scoringModal').classList.remove('hidden');
+        }
+
+        function renderModalPlayerSelectors() {
+            const winnerGrid = document.getElementById('winnerSelectGrid');
+            const loserGrid = document.getElementById('loserSelectGrid');
+            winnerGrid.innerHTML = '';
+            loserGrid.innerHTML = '';
+
+            appState.players.forEach(p => {
+                const wBtn = document.createElement('button');
+                wBtn.type = 'button';
+                wBtn.className = `p-2 rounded-xl border text-xs font-bold transition ${
+                    selectedWinner === p.id 
+                        ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan' 
+                        : 'bg-black/40 border-gray-800 text-gray-300'
+                }`;
+                wBtn.innerText = p.name;
+                wBtn.onclick = () => { selectedWinner = p.id; renderModalPlayerSelectors(); };
+                winnerGrid.appendChild(wBtn);
+
+                if (currentModalType === 'ron') {
+                    const lBtn = document.createElement('button');
+                    lBtn.type = 'button';
+                    lBtn.className = `p-2 rounded-xl border text-xs font-bold transition ${
+                        selectedLoser === p.id 
+                            ? 'bg-neon-pink/30 border-neon-pink text-neon-pink' 
+                            : 'bg-black/40 border-gray-800 text-gray-300'
+                    }`;
+                    lBtn.innerText = p.name;
+                    lBtn.onclick = () => { selectedLoser = p.id; renderModalPlayerSelectors(); };
+                    loserGrid.appendChild(lBtn);
+                }
+            });
+        }
+
+        function handleScoreSubmit(e) {
+            e.preventDefault();
+            if (selectedWinner === null) {
+                alert('和了者を選択してください');
+                return;
+            }
+            if (currentModalType === 'ron' && (selectedLoser === null || selectedWinner === selectedLoser)) {
+                alert('正しく放銃者を選択してください');
+                return;
+            }
+
+            const han = document.getElementById('scoreHan').value;
+            const fu = document.getElementById('scoreFu').value;
+            const dealerIdx = appState.currentRound % 4;
+            const isDealer = selectedWinner === dealerIdx;
+
+            const honbaBonus = appState.honba * 300;
+            const riichiBonus = appState.riichiSticks * 1000;
+
+            if (currentModalType === 'ron') {
+                const calculated = calculateScore(han, fu, isDealer, false);
+                const totalGain = calculated.total + honbaBonus + riichiBonus;
+
+                appState.players[selectedWinner].score += totalGain;
+                appState.players[selectedLoser].score -= (calculated.total + honbaBonus);
+            } else {
+                // Tsumo
+                const calculated = calculateScore(han, fu, isDealer, true);
+                if (isDealer) {
+                    appState.players.forEach(p => {
+                        if (p.id === selectedWinner) {
+                            p.score += calculated.total + honbaBonus + riichiBonus;
+                        } else {
+                            p.score -= (calculated.payEach + (appState.honba * 100));
+                        }
+                    });
+                } else {
+                    appState.players.forEach(p => {
+                        if (p.id === selectedWinner) {
+                            p.score += calculated.total + honbaBonus + riichiBonus;
+                        } else if (p.id === dealerIdx) {
+                            p.score -= (calculated.payDealer + (appState.honba * 100));
+                        } else {
+                            p.score -= (calculated.payOther + (appState.honba * 100));
+                        }
+                    });
+                }
+            }
+
+            // Clear Riichi status and sticks
+            appState.players.forEach(p => p.riichi = false);
+            appState.riichiSticks = 0;
+
+            // Dealer Advance Logic
+            if (selectedWinner === dealerIdx) {
+                appState.honba += 1; // Renchan
+            } else {
+                appState.currentRound += 1;
+                appState.honba = 0;
+            }
+
+            closeModal('scoringModal');
+            resetModalSelections();
+            renderAll();
+        }
+
+        function handleRyuukyou() {
+            // Simple Ryuukyou logic (Honba +1, Sticks carry over)
+            appState.honba += 1;
+            appState.currentRound += 1;
+            appState.players.forEach(p => p.riichi = false);
+            renderAll();
+        }
+
+        function toggleRiichi(playerId) {
+            const player = appState.players.find(p => p.id === playerId);
+            if (!player) return;
+
+            if (!player.riichi) {
+                if (player.score >= 1000) {
+                    player.score -= 1000;
+                    player.riichi = true;
+                    appState.riichiSticks += 1;
+                } else {
+                    alert('点数が足りません');
+                }
+            } else {
+                player.score += 1000;
+                player.riichi = false;
+                appState.riichiSticks -= 1;
+            }
+            renderAll();
+        }
+
+        function confirmEndMatch() {
+            if (!confirm('半荘を終了して最終計算（ウマ・オカ）を適用し、結果を保存しますか？')) return;
+
+            // Sort players by end score to calculate places
+            const sorted = [...appState.players].sort((a, b) => b.score - a.score);
+            
+            // Rules
+            const returnPts = appState.rules.returnPoints; // e.g. 30000
+            const startPts = appState.rules.startPoints;   // e.g. 25000
+            const oka = (returnPts - startPts) * 4 / 1000; // Oka total in points (e.g. 20)
+            const uma = appState.rules.uma; // [30, 10, -10, -30]
+
+            const matchResult = {
+                id: Date.now(),
+                date: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+                scores: {},
+                points: {}
+            };
+
+            sorted.forEach((player, rank) => {
+                // Point Calculation: (Raw Score - Return Points) / 1000 + Uma + Oka(if 1st)
+                let p = (player.score - returnPts) / 1000;
+                p += uma[rank];
+                if (rank === 0) p += oka; // Oka awarded to top player
+
+                matchResult.scores[player.name] = player.score;
+                matchResult.points[player.name] = parseFloat(p.toFixed(1));
+            });
+
+            appState.history.push(matchResult);
+
+            // Record into live Score History Graph
+            recordGraphEntry(`半荘 ${appState.history.length}`);
+
+            // Reset scores for next game
+            appState.players.forEach(p => {
+                p.score = appState.rules.startPoints;
+                p.riichi = false;
+            });
+            appState.currentRound = 0;
+            appState.honba = 0;
+            appState.riichiSticks = 0;
+
+            renderAll();
+            alert('半荘の結果が保存されました！推移グラフと順位表が更新されました。');
+        }
+
+        function recordGraphEntry(label) {
+            const entry = { game: label };
+            
+            // Calculate total points accumulated so far
+            appState.players.forEach(p => {
+                let totalP = 0;
+                appState.history.forEach(h => {
+                    totalP += (h.points[p.name] || 0);
+                });
+                entry[p.name] = parseFloat(totalP.toFixed(1));
+            });
+
+            if (appState.scoreHistoryGraph.length === 0) {
+                // Initial baseline
+                const base = { game: '開始' };
+                appState.players.forEach(p => base[p.name] = 0);
+                appState.scoreHistoryGraph.push(base);
+            }
+
+            appState.scoreHistoryGraph.push(entry);
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            const colors = ['#00f3ff', '#ff007f', '#ffe600', '#b000ff'];
+
+            scoreChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['開始'],
+                    datasets: appState.players.map((p, idx) => ({
+                        label: p.name,
+                        data: [0],
+                        borderColor: colors[idx % colors.length],
+                        backgroundColor: colors[idx % colors.length] + '20',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 4
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff', font: { family: 'Zen Maru Gothic' } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8888aa' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            ticks: { color: '#8888aa' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!scoreChartInstance) return;
+
+            const labels = appState.scoreHistoryGraph.map(g => g.game);
+            scoreChartInstance.data.labels = labels;
+
+            const colors = ['#00f3ff', '#ff007f', '#ffe600', '#b000ff'];
+            scoreChartInstance.data.datasets = appState.players.map((p, idx) => {
+                const datasetData = appState.scoreHistoryGraph.map(g => g[p.name] || 0);
+                return {
+                    label: p.name,
+                    data: datasetData,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: colors[idx % colors.length],
+                    borderWidth: 3,
+                    tension: 0.3,
+                    pointRadius: 4
+                };
+            });
+
+            scoreChartInstance.update();
+        }
+
+        function renderRankingTable() {
+            const tbody = document.getElementById('rankingTableBody');
+            tbody.innerHTML = '';
+
+            // Aggregate statistics
+            const stats = appState.players.map(p => {
+                let totalP = 0;
+                let games = 0;
+                let wins = 0;
+                let totalRanks = 0;
+
+                appState.history.forEach(h => {
+                    if (h.points[p.name] !== undefined) {
+                        games++;
+                        totalP += h.points[p.name];
+                        
+                        // Check rank in that match
+                        const matchScores = Object.entries(h.scores).sort((a,b) => b[1] - a[1]);
+                        const r = matchScores.findIndex(entry => entry[0] === p.name) + 1;
+                        if (r === 1) wins++;
+                        totalRanks += r;
+                    }
+                });
+
+                return {
+                    name: p.name,
+                    totalP: parseFloat(totalP.toFixed(1)),
+                    games,
+                    topRate: games > 0 ? ((wins / games) * 100).toFixed(0) + '%' : '-',
+                    avgRank: games > 0 ? (totalRanks / games).toFixed(2) : '-'
+                };
+            });
+
+            // Sort by Total Points
+            stats.sort((a, b) => b.totalP - a.totalP);
+
+            stats.forEach((s, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/5 transition';
+                tr.innerHTML = `
+                    <td class="p-2">
+                        <span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-black ${
+                            idx === 0 ? 'bg-yellow-400 text-black' : idx === 1 ? 'bg-gray-300 text-black' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-400'
+                        }">
+                            ${idx + 1}
+                        </span>
+                    </td>
+                    <td class="p-2 text-white">${s.name}</td>
+                    <td class="p-2 text-right font-orbitron font-black ${s.totalP >= 0 ? 'text-neon-cyan' : 'text-red-400'}">
+                        ${s.totalP > 0 ? '+' : ''}${s.totalP}
+                    </td>
+                    <td class="p-2 text-center text-gray-400">${s.games}</td>
+                    <td class="p-2 text-center text-neon-yellow">${s.topRate}</td>
+                    <td class="p-2 text-center text-gray-300">${s.avgRank}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderHistoryLog() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+
+            if (appState.history.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-500 py-6 text-xs">まだ終了した対局はありません</div>';
+                return;
+            }
+
+            appState.history.slice().reverse().forEach((match, idx) => {
+                const card = document.createElement('div');
+                card.className = 'bg-neon-card p-3 rounded-2xl border border-gray-800 space-y-1.5';
+
+                let playerRows = '';
+                Object.entries(match.points).sort((a,b) => b[1] - a[1]).forEach(([pName, pts], rank) => {
+                    const rawScore = match.scores[pName];
+                    playerRows += `
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-300">${rank + 1}. ${pName} (${rawScore.toLocaleString()}点)</span>
+                            <span class="font-orbitron font-bold ${pts >= 0 ? 'text-neon-cyan' : 'text-neon-pink'}">${pts > 0 ? '+' : ''}${pts}pt</span>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-gray-800 pb-1">
+                        <span class="font-bold text-[10px] text-neon-yellow">半荘 #${appState.history.length - idx}</span>
+                        <span class="text-[10px] text-gray-500">${match.date}</span>
+                    </div>
+                    <div class="space-y-0.5">
+                        ${playerRows}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function switchTab(tabName) {
+            ['table', 'rank', 'history'].forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                if (t === tabName) {
+                    view.classList.remove('hidden');
+                    btn.className = 'tab-btn active flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-neon-cyan border border-neon-cyan/50';
+                } else {
+                    view.classList.add('hidden');
+                    btn.className = 'tab-btn flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all duration-300 text-gray-400 hover:text-white';
+                }
+            });
+
+            checkLandscapeOptimization();
+            if (tabName === 'rank') {
+                setTimeout(updateChart, 100);
+            }
+        }
+
+        function openSettingsModal() {
+            document.getElementById('pName0').value = appState.players[0].name;
+            document.getElementById('pName1').value = appState.players[1].name;
+            document.getElementById('pName2').value = appState.players[2].name;
+            document.getElementById('pName3').value = appState.players[3].name;
+            document.getElementById('startPoints').value = appState.rules.startPoints;
+            document.getElementById('returnPoints').value = appState.rules.returnPoints;
+
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function saveSettings() {
+            appState.players[0].name = document.getElementById('pName0').value || 'プレイヤー1';
+            appState.players[1].name = document.getElementById('pName1').value || 'プレイヤー2';
+            appState.players[2].name = document.getElementById('pName2').value || 'プレイヤー3';
+            appState.players[3].name = document.getElementById('pName3').value || 'プレイヤー4';
+
+            appState.rules.startPoints = parseInt(document.getElementById('startPoints').value) || 25000;
+            appState.rules.returnPoints = parseInt(document.getElementById('returnPoints').value) || 30000;
+
+            const umaVal = document.getElementById('umaSetting').value;
+            if (umaVal === '10-30') appState.rules.uma = [30, 10, -10, -30];
+            else if (umaVal === '10-20') appState.rules.uma = [20, 10, -10, -20];
+            else if (umaVal === '5-10') appState.rules.uma = [10, 5, -5, -10];
+            else appState.rules.uma = [0, 0, 0, 0];
+
+            closeModal('settingsModal');
+            renderAll();
+        }
+
+        function openAdjustModal(playerId) {
+            adjustingPlayerId = playerId;
+            const player = appState.players.find(p => p.id === playerId);
+            document.getElementById('adjustPlayerName').innerText = `${player.name} の点数を編集`;
+            document.getElementById('adjustScoreInput').value = player.score;
+            document.getElementById('adjustModal').classList.remove('hidden');
+        }
+
+        function applyScoreAdjustment() {
+            const val = parseInt(document.getElementById('adjustScoreInput').value);
+            if (!isNaN(val)) {
+                const player = appState.players.find(p => p.id === adjustingPlayerId);
+                if (player) player.score = val;
+            }
+            closeModal('adjustModal');
+            renderAll();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function resetModalSelections() {
+            selectedWinner = null;
+            selectedLoser = null;
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('neon_mahjong_state', JSON.stringify(appState));
+        }
+
+        function loadStateFromStorage() {
+            const saved = localStorage.getItem('neon_mahjong_state');
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                } catch (e) {
+                    console.error('Storage parse error', e);
+                }
+            }
+        }
+
+        function resetAllData() {
+            if (!confirm('全ての対局データおよび推移グラフをリセットしますか？')) return;
+            localStorage.removeItem('neon_mahjong_state');
+            location.reload();
+        }
+    </script>
+</body>
+</html>
+
