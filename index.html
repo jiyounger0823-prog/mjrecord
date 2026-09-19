@@ -1266,6 +1266,134 @@
             selectedLoserSeat = null;
         }
 
+        function exportAppData() {
+    const exportData = {
+        appName: 'mjrecord',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        state: appState
+    };
+
+    const json = JSON.stringify(exportData, null, 2);
+    const file = new File(
+        [json],
+        'mjrecord-data.json',
+        { type: 'application/json' }
+    );
+
+    // iPhoneでは共有メニューを表示
+    if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+    ) {
+        navigator.share({
+            title: '麻雀記録データ',
+            text: '麻雀記録データを共有します。',
+            files: [file]
+        }).catch((error) => {
+            // 共有画面を閉じた場合は何もしない
+            console.log('共有をキャンセルしました:', error);
+        });
+
+        return;
+    }
+
+    // 共有機能が使えない環境ではダウンロード
+    const blob = new Blob([json], {
+        type: 'application/json'
+    });
+
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = downloadUrl;
+    link.download = 'mjrecord-data.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(downloadUrl);
+}
+
+function importAppData(event) {
+    const file = event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            const importedState = importedData.state || importedData;
+
+            if (
+                !importedState ||
+                !Array.isArray(importedState.allPlayers) ||
+                !Array.isArray(importedState.activePlayerIds) ||
+                !Array.isArray(importedState.tableSeats) ||
+                !Array.isArray(importedState.history) ||
+                !Array.isArray(importedState.scoreHistoryGraph)
+            ) {
+                throw new Error('対応していないデータ形式です');
+            }
+
+            const shouldImport = confirm(
+                '現在のデータを上書きして読み込みますか？'
+            );
+
+            if (!shouldImport) {
+                event.target.value = '';
+                return;
+            }
+
+            // 読み込み前のデータをバックアップ
+            localStorage.setItem(
+                'neon_mahjong_backup_before_import',
+                JSON.stringify(appState)
+            );
+
+            // 既存の初期構造を残しつつデータを反映
+            appState = {
+                ...appState,
+                ...importedState,
+                rules: {
+                    ...appState.rules,
+                    ...(importedState.rules || {})
+                }
+            };
+
+            // 現在のアプリで使用しているキーに保存
+            localStorage.setItem(
+                'neon_mahjong_state_v2',
+                JSON.stringify(appState)
+            );
+
+            alert(
+                'データを読み込みました。' +
+                '\n画面を更新します。'
+            );
+
+            location.reload();
+
+        } catch (error) {
+            console.error('データ読み込みエラー:', error);
+
+            alert(
+                'データの読み込みに失敗しました。' +
+                '\nmjrecordから書き出したJSONファイルを選択してください。'
+            );
+        }
+
+        // 同じファイルをもう一度選択できるようにする
+        event.target.value = '';
+    };
+
+    reader.readAsText(file);
+}
         function saveStateToStorage() {
             localStorage.setItem('neon_mahjong_state_v2', JSON.stringify(appState));
         }
