@@ -223,7 +223,7 @@
     <div id="scoringModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neon-card border border-neon-cyan/50 rounded-3xl w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div class="flex justify-between items-center border-b border-gray-800 pb-2">
-                <h3 class="text-base font-bold text-neon-cyan">和了（アガリ）点数入力</h3>
+                <h3 class="text-base font-bold text-neon-cyan">アガリ点数入力</h3>
                 <button onclick="closeModal('scoringModal')" class="text-gray-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
@@ -231,13 +231,13 @@
 
             <form id="scoringForm" onsubmit="handleScoreSubmit(event)" class="space-y-3">
                 <div>
-                    <label class="block text-[10px] text-gray-400 mb-1">和了方式</label>
+                    <label class="block text-[10px] text-gray-400 mb-1">アガリ方式</label>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" id="winTypeRon" onclick="setWinType('ron')" class="py-2 rounded-xl border text-xs font-bold transition bg-neon-pink/30 border-neon-pink text-neon-pink">
-                            ⚡ ロン (放銃)
+                        ロン
                         </button>
                         <button type="button" id="winTypeTsumo" onclick="setWinType('tsumo')" class="py-2 rounded-xl border text-xs font-bold transition bg-black/40 border-gray-800 text-gray-400">
-                            🌊 ツモ (自ツモ)
+                        ツモ
                         </button>
                     </div>
                 </div>
@@ -248,7 +248,7 @@
                 </div>
 
                 <div id="loserSelectContainer">
-                    <label class="block text-[10px] text-gray-400 mb-1">放銃者 (ロンされた人)</label>
+                    <label class="block text-[10px] text-gray-400 mb-1">放銃者</label>
                     <div id="loserSelectGrid" class="grid grid-cols-2 gap-1.5"></div>
                 </div>
 
@@ -261,11 +261,11 @@
                             <option value="2">2 翻</option>
                             <option value="3">3 翻</option>
                             <option value="4">4 翻</option>
-                            <option value="5">満貫 (5翻)</option>
-                            <option value="6">跳満 (6-7翻)</option>
-                            <option value="8">倍満 (8-10翻)</option>
-                            <option value="11">三倍満 (11-12翻)</option>
-                            <option value="13">役満 (13翻〜)</option>
+                            <option value="5">5 翻)</option>
+                            <option value="6">6-7翻</option>
+                            <option value="8">8-10翻</option>
+                            <option value="11">11-12翻</option>
+                            <option value="13">13翻〜</option>
                         </select>
                     </div>
                     <div>
@@ -297,7 +297,7 @@
         </div>
     </div>
 
-    <!-- RYUUKYOU MODAL -->
+    <!-- RYUUKYOKU MODAL -->
     <div id="ryuukyouModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neon-card border border-gray-600 rounded-3xl w-full max-w-sm p-4 space-y-3">
             <h3 class="text-base font-bold text-gray-200">流局 - 聴牌（テンパイ）確認</h3>
@@ -360,7 +360,7 @@
                 <div>
                     <label class="block text-[10px] text-gray-400 mb-1">ウマ (1位-2位-3位-4位)</label>
                     <select id="umaSetting" class="w-full bg-black/60 border border-gray-700 p-2 rounded-xl text-xs">
-                        <option value="10-30">ゴッツー / ワンツー (+30, +10, -10, -30)</option>
+                        <option value="10-30">+30, +10, -10, -30</option>
                         <option value="10-20">+20, +10, -10, -20</option>
                         <option value="5-10">+10, +5, -5, -10</option>
                         <option value="0-0">ウマなし (0, 0, 0, 0)</option>
@@ -372,7 +372,7 @@
                 </button>
                 <div class="border-t border-gray-800 pt-3 mt-2 space-y-2">
     <p class="text-[10px] text-gray-400">
-        別のiPhoneへデータを引き継ぐ
+        別のスマホへデータを引き継ぐ
     </p>
 
     <div class="flex gap-2">
