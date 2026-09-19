@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5人麻雀 スコア管理</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f7f6; color: #333; }
+    h1, h2 { color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; }
+    .card { background: #fff; padding: 15px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    input[type="text"], input[type="number"] { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #219150; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #eef2f5; }
+    .checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; }
+    .checkbox-group label { background: #eef2f5; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+    .checkbox-group input { margin-right: 5px; }
+  </style>
+</head>
+<body>
+
+  <h1>5人麻雀 成績推移・順位管理</h1>
+
+  <!-- 1. 設定画面：メンバー登録 -->
+  <div class="card">
+    <h2>1. メンバー設定（5人）</h2>
+    <div class="grid">
+      <input type="text" id="p1" value="プレイヤーA">
+      <input type="text" id="p2" value="プレイヤーB">
+      <input type="text" id="p3" value="プレイヤーC">
+      <input type="text" id="p4" value="プレイヤーD">
+      <input type="text" id="p5" value="プレイヤーE">
+    </div>
+    <button onclick="saveMembers()">メンバー名を反映</button>
+  </div>
+
+  <!-- 2. 半荘開始・スコア入力画面 -->
+  <div class="card">
+    <h2>2. 半荘スコア入力</h2>
+    <p>対局する4人を選択してください（選択されなかった1人が抜け番になります）：</p>
+    <div class="checkbox-group" id="playerSelect"></div>
+
+    <div id="scoreInputs" style="margin-top: 15px;"></div>
+    <button onclick="addGame()" style="margin-top: 10px;">この半荘を記録</button>
+  </div>
+
+  <!-- 3. 全体スコア・順位表示画面 -->
+  <div class="card">
+    <h2>3. 総合結果・推移表</h2>
+    <table id="resultTable">
+      <thead>
+        <tr id="tableHeader"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let players = ["プレイヤーA", "プレイヤーB", "プレイヤーC", "プレイヤーD", "プレイヤーE"];
+    let history = []; // 各半荘のスコア記録 [{p1: 10, p2: -5, ...}]
+
+    // 初期表示
+    window.onload = function() {
+      renderPlayerSelect();
+      renderTable();
+    };
+
+    // メンバー名保存
+    function saveMembers() {
+      for (let i = 0; i < 5; i++) {
+        const val = document.getElementById(`p${i+1}`).value.trim();
+        players[i] = val || `プレイヤー${i+1}`;
+      }
+      renderPlayerSelect();
+      renderTable();
+      alert("メンバー名を保存しました。");
+    }
+
+    // 対局メンバー選択チェックボックス描画
+    function renderPlayerSelect() {
+      const container = document.getElementById("playerSelect");
+      container.innerHTML = "";
+      players.forEach((p, idx) => {
+        container.innerHTML += `
+          <label>
+            <input type="checkbox" name="activePlayer" value="${idx}" onchange="updateScoreForm()" checked>
+            ${p}
+          </label>
+        `;
+      });
+      updateScoreForm();
+    }
+
+    // 選択された4人分の入力フォーム生成
+    function updateScoreForm() {
+      const checked = Array.from(document.querySelectorAll('input[name="activePlayer"]:checked'));
+      const container = document.getElementById("scoreInputs");
+      container.innerHTML = "";
+
+      if (checked.length !== 4) {
+        container.innerHTML = `<p style="color:red;">※対局するメンバーをちょうど4人選択してください（現在 ${checked.length} 人選択中）</p>`;
+        return;
+      }
+
+      let html = '<div class="grid">';
+      checked.forEach(chk => {
+        const idx = chk.value;
+        html += `
+          <div>
+            <label><b>${players[idx]}</b></label>
+            <input type="number" id="score_${idx}" placeholder="スコア (例: 35.5)">
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // 半荘結果の追加
+    function addGame() {
+      const checked = Array.from(document.querySelectorAll('input[name="activePlayer"]:checked'));
+      if (checked.length !== 4) {
+        alert("対局メンバーを4人選択してください。");
+        return;
+      }
+
+      let gameScore = [0, 0, 0, 0, 0]; // 抜け番はデフォルト0
+      let activeIndices = checked.map(c => parseInt(c.value));
+
+      for (let idx of activeIndices) {
+        const val = parseFloat(document.getElementById(`score_${idx}`).value);
+        if (isNaN(val)) {
+          alert("対局参加者全員のスコアを入力してください。");
+          return;
+        }
+        gameScore[idx] = val;
+      }
+
+      history.push(gameScore);
+      renderTable();
+
+      // 入力欄クリア
+      activeIndices.forEach(idx => {
+        document.getElementById(`score_${idx}`).value = "";
+      });
+    }
+
+    // テーブル（結果・推移・累積順位）の描画
+    function renderTable() {
+      // ヘッダー作成
+      const header = document.getElementById("tableHeader");
+      header.innerHTML = "<th>半荘</th>" + players.map(p => `<th>${p}</th>`).join("");
+
+      const body = document.getElementById("tableBody");
+      body.innerHTML = "";
+
+      let totals = [0, 0, 0, 0, 0];
+
+      // 各半荘の推移行を作成
+      history.forEach((game, gIdx) => {
+        let row = `<tr><td>第 ${gIdx + 1} 半荘</td>`;
+        for (let i = 0; i < 5; i++) {
+          totals[i] += game[i];
+          const isRest = !document.querySelectorAll('input[name="activePlayer"]')[i]?.checked; 
+          row += `<td>${game[i] !== 0 ? (game[i] > 0 ? "+" + game[i] : game[i]) : "休"}</td>`;
+        }
+        row += "</tr>";
+        body.innerHTML += row;
+      });
+
+      // トータルスコア行
+      let totalRow = `<tr style="font-weight:bold; background:#e8f8f5;"><td>トータル</td>`;
+      for (let i = 0; i < 5; i++) {
+        const score = totals[i].toFixed(1);
+        totalRow += `<td>${score > 0 ? "+" + score : score}</td>`;
+      }
+      totalRow += "</tr>";
+
+      // 順位行の計算と描画
+      let ranks = getRanks(totals);
+      let rankRow = `<tr style="font-weight:bold; background:#fef9e7;"><td>総合順位</td>`;
+      for (let i = 0; i < 5; i++) {
+        rankRow += `<td>${ranks[i]} 位</td>`;
+      }
+      rankRow += "</tr>";
+
+      body.innerHTML += totalRow + rankRow;
+    }
+
+    // トータルスコアから順位を計算
+    function getRanks(totals) {
+      let sorted = [...totals].sort((a, b) => b - a);
+      return totals.map(v => sorted.indexOf(v) + 1);
+    }
+  </script>
+</body>
+</html>
