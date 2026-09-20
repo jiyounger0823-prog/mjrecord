@@ -481,6 +481,10 @@
         let scoreChartInstance = null;
         let diffTimer = null;
         let lastDiffs = {};
+        
+        // 長押し中の基準プレイヤーの席番号
+        let pressedScoreSeatIdx = null;
+        let scorePressTimer = null;
 
         window.onload = function() {
             lucide.createIcons();
