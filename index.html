@@ -44,9 +44,6 @@
         min-height: 100dvh;
         padding-bottom: env(safe-area-inset-bottom);
          }
-        .score-value {
-            text-align: center !important;
-        }
         .glow-cyan {
             box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
             border: 1px solid rgba(0, 243, 255, 0.6);
@@ -128,6 +125,28 @@
         .score-card-pressed {
     border-color: rgba(0, 243, 255, 0.9) !important;
     box-shadow: 0 0 18px rgba(0, 243, 255, 0.5);
+}
+
+/* 点数カードの長押し選択を無効化 */
+.score-card,
+.score-card * {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.score-card {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 点数を確実に中央寄せ */
+.score-value {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 .score-value {
