@@ -104,6 +104,25 @@
                 height: calc(100vh - 60px) !important;
             }
         }
+        
+        @media (max-width: 640px) and (orientation: portrait) {
+    #topNav {
+        padding-top: max(0.375rem, env(safe-area-inset-top));
+    }
+
+    main {
+        padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+
+    .table-view-container {
+        height: calc(100dvh - 135px);
+    }
+
+    #playersGrid {
+        padding-bottom: 0.5rem;
+    }
+}
+        
     </style>
 </head>
 <body class="h-screen flex flex-col justify-between selection:bg-neon-pink selection:text-white overflow-hidden">
