@@ -558,6 +558,8 @@
                     isDealer ? 'border-neon-pink glow-pink' : 'border-gray-800 hover:border-gray-700'
                 } ${seatData.riichi ? 'ring-2 ring-neon-yellow' : ''}`;
 
+                card.dataset.seatIdx = seatIdx;
+                
                 card.innerHTML = `
                     <div class="flex justify-between items-center gap-1">
                         <div class="flex items-center gap-1.5 min-w-0">
