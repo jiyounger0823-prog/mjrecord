@@ -601,6 +601,54 @@
             lucide.createIcons();
         }
 
+        function setupScoreCardLongPress(card, seatIdx) {
+    card.addEventListener('pointerdown', function(event) {
+        // カード内のボタンを押した場合は、長押し処理を開始しない
+        if (event.target.closest('button')) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (card.setPointerCapture) {
+            card.setPointerCapture(event.pointerId);
+        }
+
+        clearTimeout(scorePressTimer);
+
+        scorePressTimer = setTimeout(() => {
+            pressedScoreSeatIdx = seatIdx;
+            updateScoreDifferenceDisplay();
+        }, 350);
+    });
+
+    const releaseLongPress = function(event) {
+        clearTimeout(scorePressTimer);
+
+        if (pressedScoreSeatIdx !== null) {
+            pressedScoreSeatIdx = null;
+            updateScoreDifferenceDisplay();
+        }
+
+        if (
+            event &&
+            card.hasPointerCapture &&
+            card.hasPointerCapture(event.pointerId)
+        ) {
+            card.releasePointerCapture(event.pointerId);
+        }
+    };
+
+    card.addEventListener('pointerup', releaseLongPress);
+    card.addEventListener('pointercancel', releaseLongPress);
+    card.addEventListener('pointerleave', function(event) {
+        // マウス操作でカードの外へ出た場合も元に戻す
+        if (event.pointerType === 'mouse') {
+            releaseLongPress(event);
+        }
+    });
+}
+
         function autoCalculateScore() {
             if (selectedWinnerSeat === null) return;
             const hanVal = document.getElementById('scoreHan').value;
