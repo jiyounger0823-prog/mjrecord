@@ -571,12 +571,14 @@
                         ${seatData.riichi ? '<span class="text-[10px] sm:text-xs font-black bg-neon-yellow text-black px-1.5 py-0.5 rounded shrink-0 animate-pulse">立直</span>' : ''}
                     </div>
 
-                    <div class="my-auto py-1 text-center flex flex-col items-center justify-center flex-grow">
-                        <div class="text-3xl sm:text-5xl md:text-6xl font-black font-orbitron tracking-tighter leading-none w-full truncate ${seatData.score < 0 ? 'text-red-500' : 'text-neon-cyan text-glow-cyan'}">
-                            ${seatData.score.toLocaleString()}
-                        </div>
-                        ${diffHtml}
-                    </div>
+<div
+    id="scoreValue-${seatIdx}"
+    class="text-3xl sm:text-5xl md:text-6xl font-black font-orbitron tracking-tighter leading-none w-full truncate ${
+        seatData.score < 0 ? 'text-red-500' : 'text-neon-cyan'
+    }"
+>
+    ${seatData.score.toLocaleString()}
+</div>
 
                     <div class="flex gap-1.5 mt-1 shrink-0">
                         <button onclick="toggleRiichi(${seatIdx})" class="flex-1 py-1.5 text-xs font-bold rounded-xl border ${
