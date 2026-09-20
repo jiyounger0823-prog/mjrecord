@@ -649,7 +649,70 @@
     });
 }
 
+function updateScoreDifferenceDisplay() {
+    appState.tableSeats.forEach((seat, seatIdx) => {
+        const scoreElement = document.getElementById(`scoreValue-${seatIdx}`);
 
+        if (!scoreElement) {
+            return;
+        }
+
+        const score = Number(seat.score) || 0;
+
+        // 通常表示へ戻す
+        if (pressedScoreSeatIdx === null) {
+            scoreElement.textContent = score.toLocaleString();
+            scoreElement.classList.remove(
+                'text-neon-green',
+                'text-neon-pink',
+                'text-yellow-300'
+            );
+
+            scoreElement.classList.add(
+                score < 0 ? 'text-red-500' : 'text-neon-cyan'
+            );
+
+            return;
+        }
+
+        // 長押しした本人のカードは通常の点数を表示
+        if (seatIdx === pressedScoreSeatIdx) {
+            scoreElement.textContent = score.toLocaleString();
+            scoreElement.classList.remove(
+                'text-neon-green',
+                'text-neon-pink',
+                'text-yellow-300'
+            );
+            scoreElement.classList.add('text-neon-cyan');
+            return;
+        }
+
+        const baseScore =
+            Number(appState.tableSeats[pressedScoreSeatIdx].score) || 0;
+
+        const difference = score - baseScore;
+        const sign = difference > 0 ? '+' : '';
+
+        scoreElement.textContent =
+            `${sign}${difference.toLocaleString()}`;
+
+        scoreElement.classList.remove(
+            'text-neon-cyan',
+            'text-neon-green',
+            'text-neon-pink',
+            'text-yellow-300',
+            'text-red-500'
+        );
+
+        if (difference > 0) {
+            scoreElement.classList.add('text-neon-green');
+        } else if (difference < 0) {
+            scoreElement.classList.add('text-neon-pink');
+        } else {
+            scoreElement.classList.add('text-yellow-300');
+        }
+    });
+}
 
         function autoCalculateScore() {
             if (selectedWinnerSeat === null) return;
